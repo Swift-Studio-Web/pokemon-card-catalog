@@ -28,7 +28,7 @@ const defaultCards = [
 ];
 
 // Styled Button Component
-const Button = ({ variant = 'default', size = 'md', children, ...props }) => {
+const Button = ({ variant = 'default', size = 'md', style = {}, children, ...props }) => {
   const baseStyle = {
     fontFamily: "'DM Sans', sans-serif",
     fontWeight: 500,
@@ -70,7 +70,7 @@ const Button = ({ variant = 'default', size = 'md', children, ...props }) => {
   };
 
   return (
-    <button style={{ ...baseStyle, ...sizes[size], ...variants[variant] }} {...props}>
+    <button style={{ ...baseStyle, ...sizes[size], ...variants[variant], ...style }} {...props}>
       {children}
     </button>
   );
