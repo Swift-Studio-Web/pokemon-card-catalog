@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const theme = {
   bgPrimary: '#0d0d0d',
@@ -10,9 +10,43 @@ const theme = {
   accent: '#d4af37',
   accentSubtle: '#8b7355',
   soldBadge: '#404040',
+  danger: '#c44',
 };
 
-const CardContainer = ({ card, index }) => {
+const STORAGE_KEY = 'pokemon-card-catalog';
+
+const defaultCards = [
+  {
+    id: '1',
+    name: 'Piplup',
+    image: '/cards/piplup.png',
+    meta: ['Raw', 'English', 'Ultra Prism'],
+    sold: false,
+  },
+  {
+    id: '2',
+    name: 'Pikachu',
+    image: '/cards/pikachu.jpg',
+    meta: ['Raw', 'English', 'Base Set'],
+    sold: false,
+  },
+  {
+    id: '3',
+    name: 'fat gay pikachu',
+    image: '/cards/fat-pikachu.jpg',
+    meta: ['Raw', 'Japanese', 'Promo'],
+    sold: false,
+  },
+  {
+    id: '4',
+    name: 'Pikachu Illustrator',
+    image: '/cards/pikachu-illustrator.jpg',
+    meta: ['PSA 10', 'Japanese', '1998'],
+    sold: true,
+  },
+];
+
+const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -37,6 +71,67 @@ const CardContainer = ({ card, index }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {isAdmin && isHovered && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            right: '8px',
+            display: 'flex',
+            gap: '6px',
+            zIndex: 10,
+          }}
+        >
+          <button
+            onClick={() => onEdit(card)}
+            style={{
+              flex: 1,
+              padding: '8px',
+              background: theme.bgSecondary,
+              border: `1px solid ${theme.accentSubtle}`,
+              borderRadius: '4px',
+              color: theme.textPrimary,
+              fontSize: '0.7rem',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onToggleSold(card.id)}
+            style={{
+              flex: 1,
+              padding: '8px',
+              background: card.sold ? theme.accent : theme.bgSecondary,
+              border: `1px solid ${card.sold ? theme.accent : theme.accentSubtle}`,
+              borderRadius: '4px',
+              color: card.sold ? theme.bgPrimary : theme.textPrimary,
+              fontSize: '0.7rem',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            {card.sold ? 'Unmark' : 'Sold'}
+          </button>
+          <button
+            onClick={() => onDelete(card.id)}
+            style={{
+              padding: '8px 12px',
+              background: theme.danger,
+              border: 'none',
+              borderRadius: '4px',
+              color: theme.textPrimary,
+              fontSize: '0.7rem',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div
         style={{
           position: 'relative',
@@ -126,8 +221,224 @@ const CardContainer = ({ card, index }) => {
   );
 };
 
+const Modal = ({ isOpen, onClose, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '1rem',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: theme.bgSecondary,
+          borderRadius: '8px',
+          padding: '2rem',
+          maxWidth: '500px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          border: `1px solid ${theme.bgTertiary}`,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const CardForm = ({ card, onSave, onCancel }) => {
+  const [name, setName] = useState(card?.name || '');
+  const [image, setImage] = useState(card?.image || '');
+  const [meta, setMeta] = useState(card?.meta?.join(', ') || '');
+  const [imagePreview, setImagePreview] = useState(card?.image || '');
+  const fileInputRef = useRef(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result);
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name || !image) return;
+
+    onSave({
+      id: card?.id || Date.now().toString(),
+      name,
+      image,
+      meta: meta.split(',').map((m) => m.trim()).filter(Boolean),
+      sold: card?.sold || false,
+    });
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px',
+    background: theme.bgTertiary,
+    border: `1px solid ${theme.bgTertiary}`,
+    borderRadius: '4px',
+    color: theme.textPrimary,
+    fontSize: '0.9rem',
+    fontFamily: "'DM Sans', sans-serif",
+    outline: 'none',
+    marginBottom: '1rem',
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2
+        style={{
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: '1.8rem',
+          color: theme.textPrimary,
+          marginBottom: '1.5rem',
+        }}
+      >
+        {card ? 'Edit Card' : 'Add New Card'}
+      </h2>
+
+      <label style={{ display: 'block', marginBottom: '0.5rem', color: theme.textSecondary, fontSize: '0.8rem' }}>
+        Card Name
+      </label>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g., Charizard VMAX"
+        style={inputStyle}
+        required
+      />
+
+      <label style={{ display: 'block', marginBottom: '0.5rem', color: theme.textSecondary, fontSize: '0.8rem' }}>
+        Card Image
+      </label>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
+        accept="image/*"
+        style={{ display: 'none' }}
+      />
+      <div
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          ...inputStyle,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '120px',
+          border: `2px dashed ${theme.accentSubtle}`,
+          background: theme.bgTertiary,
+        }}
+      >
+        {imagePreview ? (
+          <img
+            src={imagePreview}
+            alt="Preview"
+            style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain' }}
+          />
+        ) : (
+          <span style={{ color: theme.textMuted }}>Click to upload image</span>
+        )}
+      </div>
+
+      <label style={{ display: 'block', marginBottom: '0.5rem', color: theme.textSecondary, fontSize: '0.8rem' }}>
+        Meta Tags (comma separated)
+      </label>
+      <input
+        type="text"
+        value={meta}
+        onChange={(e) => setMeta(e.target.value)}
+        placeholder="e.g., PSA 10, English, Base Set"
+        style={inputStyle}
+      />
+
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{
+            flex: 1,
+            padding: '12px',
+            background: 'transparent',
+            border: `1px solid ${theme.textMuted}`,
+            borderRadius: '4px',
+            color: theme.textSecondary,
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          style={{
+            flex: 1,
+            padding: '12px',
+            background: theme.accent,
+            border: 'none',
+            borderRadius: '4px',
+            color: theme.bgPrimary,
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          {card ? 'Save Changes' : 'Add Card'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 const App = () => {
   const [activeFilter, setActiveFilter] = useState('All');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [cards, setCards] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingCard, setEditingCard] = useState(null);
+
+  // Load cards from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      setCards(JSON.parse(stored));
+    } else {
+      setCards(defaultCards);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultCards));
+    }
+  }, []);
+
+  // Save cards to localStorage whenever they change
+  useEffect(() => {
+    if (cards.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    }
+  }, [cards]);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -180,37 +491,107 @@ const App = () => {
     };
   }, []);
 
-  const cards = [
-    {
-      name: 'Piplup',
-      image: '/cards/piplup.png',
-      meta: ['Raw', 'English', 'Ultra Prism'],
-      sold: false,
-    },
-    {
-      name: 'Pikachu',
-      image: '/cards/pikachu.jpg',
-      meta: ['Raw', 'English', 'Base Set'],
-      sold: false,
-    },
-    {
-      name: 'fat gay pikachu',
-      image: '/cards/fat-pikachu.jpg',
-      meta: ['Raw', 'Japanese', 'Promo'],
-      sold: false,
-    },
-    {
-      name: 'Pikachu Illustrator',
-      image: '/cards/pikachu-illustrator.jpg',
-      meta: ['PSA 10', 'Japanese', '1998'],
-      sold: true,
-    },
-  ];
+  const handleSaveCard = (card) => {
+    if (editingCard) {
+      setCards(cards.map((c) => (c.id === card.id ? card : c)));
+    } else {
+      setCards([...cards, card]);
+    }
+    setShowModal(false);
+    setEditingCard(null);
+  };
+
+  const handleDeleteCard = (id) => {
+    if (window.confirm('Delete this card?')) {
+      setCards(cards.filter((c) => c.id !== id));
+    }
+  };
+
+  const handleToggleSold = (id) => {
+    setCards(cards.map((c) => (c.id === id ? { ...c, sold: !c.sold } : c)));
+  };
+
+  const handleEditCard = (card) => {
+    setEditingCard(card);
+    setShowModal(true);
+  };
 
   const filters = ['All', 'Raw', 'Slabs', 'Japanese', 'Sealed'];
 
+  const filteredCards = cards.filter((card) => {
+    if (activeFilter === 'All') return true;
+    if (activeFilter === 'Slabs') {
+      return card.meta.some((m) => m.toLowerCase().includes('psa') || m.toLowerCase().includes('bgs') || m.toLowerCase().includes('cgc'));
+    }
+    return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
+  });
+
   return (
     <div>
+      {/* Admin Toggle */}
+      <button
+        onClick={() => setIsAdmin(!isAdmin)}
+        style={{
+          position: 'fixed',
+          bottom: '2rem',
+          right: '2rem',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          background: isAdmin ? theme.accent : theme.bgSecondary,
+          border: `2px solid ${isAdmin ? theme.accent : theme.accentSubtle}`,
+          color: isAdmin ? theme.bgPrimary : theme.textPrimary,
+          fontSize: '1.5rem',
+          cursor: 'pointer',
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.3s ease',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        }}
+        title={isAdmin ? 'Exit Admin Mode' : 'Enter Admin Mode'}
+      >
+        {isAdmin ? '×' : '⚙'}
+      </button>
+
+      {/* Add Card Button (Admin only) */}
+      {isAdmin && (
+        <button
+          onClick={() => {
+            setEditingCard(null);
+            setShowModal(true);
+          }}
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            right: '6rem',
+            padding: '1rem 1.5rem',
+            borderRadius: '28px',
+            background: theme.accent,
+            border: 'none',
+            color: theme.bgPrimary,
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            zIndex: 999,
+            fontFamily: "'DM Sans', sans-serif",
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          }}
+        >
+          + Add Card
+        </button>
+      )}
+
+      {/* Card Form Modal */}
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingCard(null); }}>
+        <CardForm
+          card={editingCard}
+          onSave={handleSaveCard}
+          onCancel={() => { setShowModal(false); setEditingCard(null); }}
+        />
+      </Modal>
+
       {/* Hero Section */}
       <header
         style={{
@@ -307,6 +688,28 @@ const App = () => {
             </span>
           ))}
         </div>
+
+        {isAdmin && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: theme.accent,
+              color: theme.bgPrimary,
+              padding: '0.5rem 1.5rem',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              fontFamily: "'DM Sans', sans-serif",
+              letterSpacing: '0.1em',
+              zIndex: 10,
+            }}
+          >
+            ADMIN MODE
+          </div>
+        )}
       </header>
 
       {/* Filter Navigation */}
@@ -382,9 +785,34 @@ const App = () => {
           gap: '3rem 2rem',
         }}
       >
-        {cards.map((card, index) => (
-          <CardContainer key={index} card={card} index={index} />
-        ))}
+        {filteredCards.length === 0 ? (
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              textAlign: 'center',
+              padding: '4rem',
+              color: theme.textMuted,
+            }}
+          >
+            {isAdmin ? (
+              <p>No cards yet. Click "+ Add Card" to get started.</p>
+            ) : (
+              <p>No cards in this category.</p>
+            )}
+          </div>
+        ) : (
+          filteredCards.map((card, index) => (
+            <CardContainer
+              key={card.id}
+              card={card}
+              index={index}
+              isAdmin={isAdmin}
+              onEdit={handleEditCard}
+              onDelete={handleDeleteCard}
+              onToggleSold={handleToggleSold}
+            />
+          ))
+        )}
       </main>
 
       {/* Contact Section */}
