@@ -1,21 +1,43 @@
-# Pokemon Card Catalog - v1
+# Pokemon Card Catalog - v1 Delivery
 
-## Admin Mode
+## Overview
 
-Click the **gear icon (⚙)** in the bottom-right corner to toggle admin mode.
+A sleek, dark-themed card catalog to showcase and manage your Pokemon card inventory. Built for collectors who want a clean, professional way to display their cards online.
+
+## Design
+
+- **Dark premium aesthetic** — Minimal black theme with gold accents
+- **Mobile responsive** — Works on all devices
+- **Smooth animations** — Cards fade in with subtle hover effects
+- **Clean typography** — Bebas Neue + DM Sans font pairing
 
 ## Features
 
-- **Add Card** — Upload image, name, and tags
-- **Edit/Delete** — Hover any card for options
-- **Mark Sold** — Toggle sold status on cards
-- **Multi-Select** — Click "Select" to edit multiple cards at once
-- **Filters** — Use the nav bar to filter by Raw, Slabs, Japanese, Sealed
+**Public View**
+- Card gallery with image, name, and tags
+- Filter by category (Raw, Slabs, Japanese, Sealed)
+- Sold cards shown with grayscale + "Sold" badge
+- Contact section with social links
 
-## Note
+**Admin Mode** (gear icon, bottom-right)
+- Add/edit/delete cards
+- Upload card images directly
+- Mark cards as sold
+- Multi-select for bulk actions
 
-Data is stored in your browser. Clearing browser data or switching devices will reset your cards.
+## Tech
+
+- React + Vite
+- Hosted on Cloudflare Pages
+- Data stored in browser (localStorage)
+
+## What's Next (v2 ideas)
+
+- Cloud database for syncing across devices
+- Password protection for admin
+- Price tracking
+- Search functionality
 
 ---
 
-*v1 Demo*
+*v1 Demo — Ready for feedback*
