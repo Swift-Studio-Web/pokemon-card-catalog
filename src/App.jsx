@@ -122,62 +122,57 @@ const Modal = ({ isOpen, onClose, children, size = 'md', preventBackdropClose = 
   );
 };
 
-// Unsaved Changes Modal
-const UnsavedChangesModal = ({ isOpen, onDiscard, onSaveDraft, onCancel }) => {
-  return (
-    <Modal isOpen={isOpen} onClose={onCancel} size="sm">
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div
-          style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: 'rgba(212, 175, 55, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.5rem',
-          }}
-        >
-          <span style={{ fontSize: '2rem' }}>⚠️</span>
-        </div>
-        <h3
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            color: theme.textPrimary,
-            marginBottom: '0.75rem',
-          }}
-        >
-          Unsaved Changes
-        </h3>
-        <p
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '0.9rem',
-            color: theme.textSecondary,
-            marginBottom: '2rem',
-            lineHeight: 1.5,
-          }}
-        >
-          You have unsaved changes. Would you like to save them as a draft?
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <Button variant="primary" size="lg" onClick={onSaveDraft} style={{ width: '100%' }}>
-            Save Draft
-          </Button>
-          <Button variant="danger" size="lg" onClick={onDiscard} style={{ width: '100%' }}>
-            Discard Changes
-          </Button>
-          <Button variant="ghost" size="md" onClick={onCancel} style={{ width: '100%' }}>
-            Keep Editing
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
+const modalIconStyle = {
+  width: '64px',
+  height: '64px',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  margin: '0 auto 1.5rem',
 };
+
+const modalTitleStyle = {
+  fontFamily: "'DM Sans', sans-serif",
+  fontSize: '1.25rem',
+  fontWeight: 600,
+  color: theme.textPrimary,
+  marginBottom: '0.75rem',
+};
+
+const modalTextStyle = {
+  fontFamily: "'DM Sans', sans-serif",
+  fontSize: '0.9rem',
+  color: theme.textSecondary,
+  marginBottom: '2rem',
+  lineHeight: 1.5,
+};
+
+// Unsaved Changes Modal
+const UnsavedChangesModal = ({ isOpen, onDiscard, onSaveDraft, onCancel }) => (
+  <Modal isOpen={isOpen} onClose={onCancel} size="sm">
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{ ...modalIconStyle, background: 'rgba(212, 175, 55, 0.1)' }}>
+        <span style={{ fontSize: '2rem' }}>⚠️</span>
+      </div>
+      <h3 style={modalTitleStyle}>Unsaved Changes</h3>
+      <p style={modalTextStyle}>
+        You have unsaved changes. Would you like to save them as a draft?
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <Button variant="primary" size="lg" onClick={onSaveDraft} style={{ width: '100%' }}>
+          Save Draft
+        </Button>
+        <Button variant="danger" size="lg" onClick={onDiscard} style={{ width: '100%' }}>
+          Discard Changes
+        </Button>
+        <Button variant="ghost" size="md" onClick={onCancel} style={{ width: '100%' }}>
+          Keep Editing
+        </Button>
+      </div>
+    </div>
+  </Modal>
+);
 
 // Delete Confirmation Modal
 const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
@@ -186,40 +181,13 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div
-          style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: 'rgba(220, 53, 69, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.5rem',
-          }}
-        >
+        <div style={{ ...modalIconStyle, background: 'rgba(220, 53, 69, 0.1)' }}>
           <span style={{ fontSize: '2rem' }}>🗑️</span>
         </div>
-        <h3
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            color: theme.textPrimary,
-            marginBottom: '0.75rem',
-          }}
-        >
+        <h3 style={modalTitleStyle}>
           Delete {isMultiple ? `${cardCount} Cards` : 'Card'}?
         </h3>
-        <p
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '0.9rem',
-            color: theme.textSecondary,
-            marginBottom: '2rem',
-            lineHeight: 1.5,
-          }}
-        >
+        <p style={modalTextStyle}>
           {isMultiple
             ? `This will permanently remove ${cardCount} cards from your catalog.`
             : 'This action cannot be undone. The card will be permanently removed.'}
@@ -238,6 +206,22 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
 };
 
 const DRAFT_KEY = 'pokemon-card-draft';
+
+const SECTION_OPTIONS = [
+  { value: 'forsale', label: 'For Sale' },
+  { value: 'buying', label: 'Buying' },
+];
+
+const adminButtonBase = {
+  padding: '10px',
+  backdropFilter: 'blur(8px)',
+  borderRadius: '6px',
+  fontSize: '0.75rem',
+  fontWeight: 500,
+  cursor: 'pointer',
+  fontFamily: "'DM Sans', sans-serif",
+  transition: 'all 0.2s ease',
+};
 
 // Card Form Modal
 const CardForm = ({ card, onSave, onCancel, activeSection }) => {
@@ -258,12 +242,11 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Track if form has changes
   const hasChanges = () => {
     if (card) {
       return name !== card.name || image !== card.image || meta !== card.meta?.join(', ') || section !== card.section;
     }
-    return name || image || meta;
+    return Boolean(name || image || meta);
   };
 
   const handleImageUpload = (e) => {
@@ -421,7 +404,7 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
             Section
           </label>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {[{ value: 'forsale', label: 'For Sale' }, { value: 'buying', label: 'Buying' }].map((opt) => (
+            {SECTION_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -564,18 +547,11 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(card); }}
             style={{
+              ...adminButtonBase,
               flex: 1,
-              padding: '10px',
               background: 'rgba(20, 20, 20, 0.95)',
-              backdropFilter: 'blur(8px)',
               border: `1px solid ${theme.border}`,
-              borderRadius: '6px',
               color: theme.textPrimary,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              cursor: 'pointer',
-              fontFamily: "'DM Sans', sans-serif",
-              transition: 'all 0.2s ease',
             }}
           >
             Edit
@@ -584,18 +560,11 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
             <button
               onClick={(e) => { e.stopPropagation(); onToggleSold(card.id); }}
               style={{
+                ...adminButtonBase,
                 flex: 1,
-                padding: '10px',
                 background: card.sold ? theme.accent : 'rgba(20, 20, 20, 0.95)',
-                backdropFilter: 'blur(8px)',
                 border: `1px solid ${card.sold ? theme.accent : theme.border}`,
-                borderRadius: '6px',
                 color: card.sold ? theme.bgPrimary : theme.textPrimary,
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                fontFamily: "'DM Sans', sans-serif",
-                transition: 'all 0.2s ease',
               }}
             >
               {card.sold ? 'Unmark' : 'Sold'}
@@ -604,15 +573,12 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
             style={{
+              ...adminButtonBase,
               padding: '10px 14px',
               background: theme.danger,
               border: 'none',
-              borderRadius: '6px',
               color: '#fff',
               fontSize: '0.85rem',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans', sans-serif",
-              transition: 'all 0.2s ease',
             }}
           >
             ×
@@ -766,6 +732,11 @@ const App = () => {
     setEditingCard(null);
   };
 
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedCards([]);
+  };
+
   const handleDeleteCard = (id) => {
     setDeleteTarget(id);
     setShowDeleteModal(true);
@@ -774,8 +745,7 @@ const App = () => {
   const confirmDelete = () => {
     if (deleteTarget === 'bulk') {
       setCards(cards.filter((c) => !selectedCards.includes(c.id)));
-      setSelectedCards([]);
-      setIsSelectMode(false);
+      exitSelectMode();
     } else {
       setCards(cards.filter((c) => c.id !== deleteTarget));
     }
@@ -789,31 +759,20 @@ const App = () => {
   };
 
   const handleSelectCard = (id) => {
-    setSelectedCards((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+    setSelectedCards((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
   };
 
-  const handleBulkMarkSold = () => {
-    setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold: true } : c)));
-    setSelectedCards([]);
-    setIsSelectMode(false);
-    setShowBulkEditModal(false);
-  };
-
-  const handleBulkMarkUnsold = () => {
-    setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold: false } : c)));
-    setSelectedCards([]);
-    setIsSelectMode(false);
+  const handleBulkSetSold = (sold) => {
+    setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold } : c)));
+    exitSelectMode();
     setShowBulkEditModal(false);
   };
 
   const handleBulkDelete = () => {
     setDeleteTarget('bulk');
     setShowDeleteModal(true);
-  };
-
-  const exitSelectMode = () => {
-    setIsSelectMode(false);
-    setSelectedCards([]);
   };
 
   const filters = ['All', 'Raw', 'Slabs', 'Japanese', 'Sealed'];
@@ -841,8 +800,8 @@ const App = () => {
         isOpen={showBulkEditModal}
         onClose={() => setShowBulkEditModal(false)}
         selectedCards={selectedCards}
-        onMarkSold={handleBulkMarkSold}
-        onMarkUnsold={handleBulkMarkUnsold}
+        onMarkSold={() => handleBulkSetSold(true)}
+        onMarkUnsold={() => handleBulkSetSold(false)}
         onDelete={handleBulkDelete}
         activeSection={activeSection}
       />
@@ -962,7 +921,7 @@ const App = () => {
           background: theme.bgPrimary,
         }}
       >
-        {[{ value: 'forsale', label: 'For Sale' }, { value: 'buying', label: 'Buying' }].map((sec) => (
+        {SECTION_OPTIONS.map((sec) => (
           <button
             key={sec.value}
             onClick={() => { setActiveSection(sec.value); setActiveFilter('All'); setSelectedCards([]); setIsSelectMode(false); }}
