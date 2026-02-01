@@ -77,7 +77,7 @@ const Button = ({ variant = 'default', size = 'md', style = {}, children, ...pro
 };
 
 // Modal Component
-const Modal = ({ isOpen, onClose, children, size = 'md' }) => {
+const Modal = ({ isOpen, onClose, children, size = 'md', preventBackdropClose = false }) => {
   if (!isOpen) return null;
 
   const sizes = {
@@ -99,7 +99,7 @@ const Modal = ({ isOpen, onClose, children, size = 'md' }) => {
         padding: '1rem',
         animation: 'fadeIn 0.2s ease',
       }}
-      onClick={onClose}
+      onClick={preventBackdropClose ? undefined : onClose}
     >
       <div
         style={{
@@ -119,6 +119,63 @@ const Modal = ({ isOpen, onClose, children, size = 'md' }) => {
         {children}
       </div>
     </div>
+  );
+};
+
+// Unsaved Changes Modal
+const UnsavedChangesModal = ({ isOpen, onDiscard, onSaveDraft, onCancel }) => {
+  return (
+    <Modal isOpen={isOpen} onClose={onCancel} size="sm">
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div
+          style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'rgba(212, 175, 55, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.5rem',
+          }}
+        >
+          <span style={{ fontSize: '2rem' }}>⚠️</span>
+        </div>
+        <h3
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '1.25rem',
+            fontWeight: 600,
+            color: theme.textPrimary,
+            marginBottom: '0.75rem',
+          }}
+        >
+          Unsaved Changes
+        </h3>
+        <p
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '0.9rem',
+            color: theme.textSecondary,
+            marginBottom: '2rem',
+            lineHeight: 1.5,
+          }}
+        >
+          You have unsaved changes. Would you like to save them as a draft?
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <Button variant="primary" size="lg" onClick={onSaveDraft} style={{ width: '100%' }}>
+            Save Draft
+          </Button>
+          <Button variant="danger" size="lg" onClick={onDiscard} style={{ width: '100%' }}>
+            Discard Changes
+          </Button>
+          <Button variant="ghost" size="md" onClick={onCancel} style={{ width: '100%' }}>
+            Keep Editing
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 
@@ -180,14 +237,34 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
   );
 };
 
+const DRAFT_KEY = 'pokemon-card-draft';
+
 // Card Form Modal
 const CardForm = ({ card, onSave, onCancel, activeSection }) => {
-  const [name, setName] = useState(card?.name || '');
-  const [image, setImage] = useState(card?.image || '');
-  const [meta, setMeta] = useState(card?.meta?.join(', ') || '');
-  const [imagePreview, setImagePreview] = useState(card?.image || '');
-  const [section, setSection] = useState(card?.section || activeSection || 'forsale');
+  // Load draft if no card is being edited
+  const loadDraft = () => {
+    if (card) return null;
+    const draft = localStorage.getItem(DRAFT_KEY);
+    return draft ? JSON.parse(draft) : null;
+  };
+
+  const draft = loadDraft();
+
+  const [name, setName] = useState(card?.name || draft?.name || '');
+  const [image, setImage] = useState(card?.image || draft?.image || '');
+  const [meta, setMeta] = useState(card?.meta?.join(', ') || draft?.meta || '');
+  const [imagePreview, setImagePreview] = useState(card?.image || draft?.image || '');
+  const [section, setSection] = useState(card?.section || draft?.section || activeSection || 'forsale');
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Track if form has changes
+  const hasChanges = () => {
+    if (card) {
+      return name !== card.name || image !== card.image || meta !== card.meta?.join(', ') || section !== card.section;
+    }
+    return name || image || meta;
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -204,6 +281,8 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name || !image) return;
+    // Clear draft on successful save
+    localStorage.removeItem(DRAFT_KEY);
     onSave({
       id: card?.id || Date.now().toString(),
       name,
@@ -212,6 +291,27 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
       sold: card?.sold || false,
       section,
     });
+  };
+
+  const handleClose = () => {
+    if (hasChanges()) {
+      setShowUnsavedModal(true);
+    } else {
+      localStorage.removeItem(DRAFT_KEY);
+      onCancel();
+    }
+  };
+
+  const handleSaveDraft = () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, image, meta, section }));
+    setShowUnsavedModal(false);
+    onCancel();
+  };
+
+  const handleDiscard = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setShowUnsavedModal(false);
+    onCancel();
   };
 
   const inputStyle = {
@@ -228,12 +328,35 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div style={{ padding: '1.5rem 2rem', borderBottom: `1px solid ${theme.border}` }}>
-        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', color: theme.textPrimary, margin: 0 }}>
-          {card ? 'Edit Card' : 'Add New Card'}
-        </h2>
-      </div>
+    <>
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onDiscard={handleDiscard}
+        onSaveDraft={handleSaveDraft}
+        onCancel={() => setShowUnsavedModal(false)}
+      />
+      <form onSubmit={handleSubmit}>
+        <div style={{ padding: '1.5rem 2rem', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', color: theme.textPrimary, margin: 0 }}>
+            {card ? 'Edit Card' : draft ? 'Continue Draft' : 'Add New Card'}
+          </h2>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: theme.textMuted,
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              lineHeight: 1,
+              transition: 'color 0.2s ease',
+            }}
+          >
+            ×
+          </button>
+        </div>
 
       <div style={{ padding: '1.5rem 2rem' }}>
         <div style={{ marginBottom: '1.25rem' }}>
@@ -324,7 +447,7 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
       </div>
 
       <div style={{ padding: '1rem 2rem 1.5rem', display: 'flex', gap: '12px', borderTop: `1px solid ${theme.border}` }}>
-        <Button variant="ghost" size="lg" type="button" onClick={onCancel} style={{ flex: 1 }}>
+        <Button variant="ghost" size="lg" type="button" onClick={handleClose} style={{ flex: 1 }}>
           Cancel
         </Button>
         <Button variant="primary" size="lg" type="submit" style={{ flex: 1 }}>
@@ -332,6 +455,7 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
         </Button>
       </div>
     </form>
+    </>
   );
 };
 
@@ -724,7 +848,7 @@ const App = () => {
       />
 
       {/* Card Form Modal */}
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingCard(null); }}>
+      <Modal isOpen={showModal} onClose={() => {}} preventBackdropClose>
         <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} activeSection={activeSection} />
       </Modal>
 
@@ -776,22 +900,19 @@ const App = () => {
       <header
         style={{
           position: 'relative',
-          height: '70vh',
-          minHeight: '500px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-end',
+          justifyContent: 'center',
           alignItems: 'center',
-          paddingBottom: '4rem',
+          padding: '3rem 2rem 2rem',
           background: `radial-gradient(ellipse at 50% 0%, ${theme.bgSecondary} 0%, ${theme.bgPrimary} 70%)`,
         }}
       >
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, transparent, ${theme.bgPrimary})`, zIndex: 1 }} />
         {isAdmin && (
           <div
             style={{
               position: 'absolute',
-              top: '1.5rem',
+              top: '1rem',
               left: '50%',
               transform: 'translateX(-50%)',
               background: theme.accent,
@@ -807,22 +928,21 @@ const App = () => {
             {isSelectMode ? `SELECT MODE · ${selectedCards.length} SELECTED` : 'ADMIN MODE'}
           </div>
         )}
-        <p style={{ color: theme.textSecondary, fontSize: '0.85rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '1rem', zIndex: 2 }}>
+        <p style={{ color: theme.textSecondary, fontSize: '0.8rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
           Pokemon Card Inventory
         </p>
         <h1
           style={{
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 'clamp(3.5rem, 10vw, 8rem)',
+            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
             lineHeight: 0.9,
             color: theme.textPrimary,
-            zIndex: 2,
             textAlign: 'center',
           }}
         >
           Card Catalog
         </h1>
-        <div style={{ color: theme.textMuted, fontSize: '0.8rem', letterSpacing: '0.15em', marginTop: '1.5rem', zIndex: 2, display: 'flex', gap: '1.5rem' }}>
+        <div style={{ color: theme.textMuted, fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '1rem', display: 'flex', gap: '1.5rem' }}>
           {['Rare', 'Graded', 'Sealed', 'Japanese'].map((item, idx) => (
             <span key={idx}>
               {item}
