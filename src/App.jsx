@@ -25,6 +25,7 @@ const defaultCards = [
   { id: '2', name: 'Pikachu', image: '/cards/pikachu.jpg', meta: ['Raw', 'English', 'Base Set'], sold: false, section: 'forsale' },
   { id: '3', name: 'fat gay pikachu', image: '/cards/fat-pikachu.jpg', meta: ['Raw', 'Japanese', 'Promo'], sold: false, section: 'forsale' },
   { id: '4', name: 'Pikachu Illustrator', image: '/cards/pikachu-illustrator.jpg', meta: ['PSA 10', 'Japanese', '1998'], sold: true, section: 'forsale' },
+  { id: '5', name: 'Italian Charizard', image: '/cards/italian-charizard.png', meta: ['Raw', 'Italian', 'Base Set'], sold: false, section: 'buying' },
 ];
 
 // Styled Button Component
