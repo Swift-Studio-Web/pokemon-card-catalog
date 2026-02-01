@@ -13,16 +13,20 @@ A sleek, dark-themed card catalog to showcase and manage your Pokemon card inven
 
 ## Features
 
+**Two Sections**
+- **For Sale** — Cards you're selling
+- **Buying** — Cards you're looking for (wishlist)
+
 **Public View**
 - Card gallery with image, name, and tags
 - Filter by category (Raw, Slabs, Japanese, Sealed)
-- Sold cards shown with grayscale + "Sold" badge
-- Contact section with social links
+- Sold cards shown with grayscale + "Sold" badge (For Sale only)
+- Contact section adapts based on section
 
 **Admin Mode** (gear icon, bottom-right)
 - Add/edit/delete cards
 - Upload card images directly
-- Mark cards as sold
+- Mark cards as sold (For Sale section)
 - Multi-select for bulk actions
 
 ## Tech

@@ -21,10 +21,10 @@ const theme = {
 const STORAGE_KEY = 'pokemon-card-catalog';
 
 const defaultCards = [
-  { id: '1', name: 'Piplup', image: '/cards/piplup.png', meta: ['Raw', 'English', 'Ultra Prism'], sold: false },
-  { id: '2', name: 'Pikachu', image: '/cards/pikachu.jpg', meta: ['Raw', 'English', 'Base Set'], sold: false },
-  { id: '3', name: 'fat gay pikachu', image: '/cards/fat-pikachu.jpg', meta: ['Raw', 'Japanese', 'Promo'], sold: false },
-  { id: '4', name: 'Pikachu Illustrator', image: '/cards/pikachu-illustrator.jpg', meta: ['PSA 10', 'Japanese', '1998'], sold: true },
+  { id: '1', name: 'Piplup', image: '/cards/piplup.png', meta: ['Raw', 'English', 'Ultra Prism'], sold: false, section: 'forsale' },
+  { id: '2', name: 'Pikachu', image: '/cards/pikachu.jpg', meta: ['Raw', 'English', 'Base Set'], sold: false, section: 'forsale' },
+  { id: '3', name: 'fat gay pikachu', image: '/cards/fat-pikachu.jpg', meta: ['Raw', 'Japanese', 'Promo'], sold: false, section: 'forsale' },
+  { id: '4', name: 'Pikachu Illustrator', image: '/cards/pikachu-illustrator.jpg', meta: ['PSA 10', 'Japanese', '1998'], sold: true, section: 'forsale' },
 ];
 
 // Styled Button Component
@@ -181,11 +181,12 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
 };
 
 // Card Form Modal
-const CardForm = ({ card, onSave, onCancel }) => {
+const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   const [name, setName] = useState(card?.name || '');
   const [image, setImage] = useState(card?.image || '');
   const [meta, setMeta] = useState(card?.meta?.join(', ') || '');
   const [imagePreview, setImagePreview] = useState(card?.image || '');
+  const [section, setSection] = useState(card?.section || activeSection || 'forsale');
   const fileInputRef = useRef(null);
 
   const handleImageUpload = (e) => {
@@ -209,6 +210,7 @@ const CardForm = ({ card, onSave, onCancel }) => {
       image,
       meta: meta.split(',').map((m) => m.trim()).filter(Boolean),
       sold: card?.sold || false,
+      section,
     });
   };
 
@@ -278,7 +280,7 @@ const CardForm = ({ card, onSave, onCancel }) => {
           </div>
         </div>
 
-        <div style={{ marginBottom: '0.5rem' }}>
+        <div style={{ marginBottom: '1.25rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', color: theme.textSecondary, fontSize: '0.8rem', fontWeight: 500 }}>
             Tags <span style={{ color: theme.textMuted }}>(comma separated)</span>
           </label>
@@ -289,6 +291,35 @@ const CardForm = ({ card, onSave, onCancel }) => {
             placeholder="e.g., PSA 10, English, Base Set"
             style={inputStyle}
           />
+        </div>
+
+        <div style={{ marginBottom: '0.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: theme.textSecondary, fontSize: '0.8rem', fontWeight: 500 }}>
+            Section
+          </label>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {[{ value: 'forsale', label: 'For Sale' }, { value: 'buying', label: 'Buying' }].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSection(opt.value)}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: section === opt.value ? theme.accent : theme.bgTertiary,
+                  border: `1px solid ${section === opt.value ? theme.accent : theme.border}`,
+                  borderRadius: '8px',
+                  color: section === opt.value ? theme.bgPrimary : theme.textSecondary,
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -305,8 +336,9 @@ const CardForm = ({ card, onSave, onCancel }) => {
 };
 
 // Bulk Edit Modal
-const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsold, onDelete }) => {
+const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsold, onDelete, activeSection }) => {
   const count = selectedCards.length;
+  const isBuying = activeSection === 'buying';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
@@ -316,12 +348,16 @@ const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsol
         </h2>
       </div>
       <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <Button variant="default" size="lg" onClick={onMarkSold} style={{ width: '100%', justifyContent: 'flex-start' }}>
-          <span>✓</span> Mark as Sold
-        </Button>
-        <Button variant="default" size="lg" onClick={onMarkUnsold} style={{ width: '100%', justifyContent: 'flex-start' }}>
-          <span>↩</span> Mark as Available
-        </Button>
+        {!isBuying && (
+          <>
+            <Button variant="default" size="lg" onClick={onMarkSold} style={{ width: '100%', justifyContent: 'flex-start' }}>
+              <span>✓</span> Mark as Sold
+            </Button>
+            <Button variant="default" size="lg" onClick={onMarkUnsold} style={{ width: '100%', justifyContent: 'flex-start' }}>
+              <span>↩</span> Mark as Available
+            </Button>
+          </>
+        )}
         <Button variant="danger" size="lg" onClick={onDelete} style={{ width: '100%', justifyContent: 'flex-start' }}>
           <span>🗑</span> Delete Selected
         </Button>
@@ -336,7 +372,8 @@ const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsol
 };
 
 // Card Component
-const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect }) => {
+const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect, activeSection }) => {
+  const isBuying = activeSection === 'buying';
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -419,25 +456,27 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
           >
             Edit
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleSold(card.id); }}
-            style={{
-              flex: 1,
-              padding: '10px',
-              background: card.sold ? theme.accent : 'rgba(20, 20, 20, 0.95)',
-              backdropFilter: 'blur(8px)',
-              border: `1px solid ${card.sold ? theme.accent : theme.border}`,
-              borderRadius: '6px',
-              color: card.sold ? theme.bgPrimary : theme.textPrimary,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              cursor: 'pointer',
-              fontFamily: "'DM Sans', sans-serif",
-              transition: 'all 0.2s ease',
-            }}
-          >
-            {card.sold ? 'Unmark' : 'Sold'}
-          </button>
+          {!isBuying && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleSold(card.id); }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                background: card.sold ? theme.accent : 'rgba(20, 20, 20, 0.95)',
+                backdropFilter: 'blur(8px)',
+                border: `1px solid ${card.sold ? theme.accent : theme.border}`,
+                borderRadius: '6px',
+                color: card.sold ? theme.bgPrimary : theme.textPrimary,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {card.sold ? 'Unmark' : 'Sold'}
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
             style={{
@@ -540,6 +579,7 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
 };
 
 const App = () => {
+  const [activeSection, setActiveSection] = useState('forsale');
   const [activeFilter, setActiveFilter] = useState('All');
   const [isAdmin, setIsAdmin] = useState(false);
   const [cards, setCards] = useState([]);
@@ -554,7 +594,10 @@ const App = () => {
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      setCards(JSON.parse(stored));
+      // Migrate cards without section field
+      const parsed = JSON.parse(stored);
+      const migrated = parsed.map(c => ({ ...c, section: c.section || 'forsale' }));
+      setCards(migrated);
     } else {
       setCards(defaultCards);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultCards));
@@ -651,6 +694,9 @@ const App = () => {
 
   const filters = ['All', 'Raw', 'Slabs', 'Japanese', 'Sealed'];
   const filteredCards = cards.filter((card) => {
+    // First filter by section
+    if (card.section !== activeSection) return false;
+    // Then filter by category
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Slabs') return card.meta.some((m) => /psa|bgs|cgc/i.test(m));
     return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
@@ -674,11 +720,12 @@ const App = () => {
         onMarkSold={handleBulkMarkSold}
         onMarkUnsold={handleBulkMarkUnsold}
         onDelete={handleBulkDelete}
+        activeSection={activeSection}
       />
 
       {/* Card Form Modal */}
       <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingCard(null); }}>
-        <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} />
+        <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} activeSection={activeSection} />
       </Modal>
 
       {/* Floating Admin Controls */}
@@ -785,6 +832,50 @@ const App = () => {
         </div>
       </header>
 
+      {/* Section Tabs */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '0',
+          padding: '1.5rem 2rem 0',
+          background: theme.bgPrimary,
+        }}
+      >
+        {[{ value: 'forsale', label: 'For Sale' }, { value: 'buying', label: 'Buying' }].map((sec) => (
+          <button
+            key={sec.value}
+            onClick={() => { setActiveSection(sec.value); setActiveFilter('All'); setSelectedCards([]); setIsSelectMode(false); }}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: '1.4rem',
+              letterSpacing: '0.05em',
+              color: activeSection === sec.value ? theme.textPrimary : theme.textMuted,
+              cursor: 'pointer',
+              padding: '0.75rem 2rem',
+              position: 'relative',
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {sec.label}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: '2rem',
+                right: '2rem',
+                height: '3px',
+                background: theme.accent,
+                transform: activeSection === sec.value ? 'scaleX(1)' : 'scaleX(0)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </button>
+        ))}
+      </div>
+
       {/* Filter Nav */}
       <nav
         style={{
@@ -838,7 +929,11 @@ const App = () => {
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '3rem 2rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '2.5rem 2rem' }}>
         {filteredCards.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
-            <p>{isAdmin ? 'No cards yet. Click "+ Add Card" to get started.' : 'No cards in this category.'}</p>
+            <p>{isAdmin
+              ? `No cards yet. Click "+ Add Card" to add ${activeSection === 'buying' ? 'cards you\'re looking for' : 'cards for sale'}.`
+              : activeSection === 'buying'
+                ? 'No cards in the wishlist yet.'
+                : 'No cards in this category.'}</p>
           </div>
         ) : (
           filteredCards.map((card, index) => (
@@ -853,6 +948,7 @@ const App = () => {
               onEdit={(c) => { setEditingCard(c); setShowModal(true); }}
               onDelete={handleDeleteCard}
               onToggleSold={handleToggleSold}
+              activeSection={activeSection}
             />
           ))
         )}
@@ -861,7 +957,7 @@ const App = () => {
       {/* Contact */}
       <section style={{ padding: '5rem 2rem 6rem', textAlign: 'center', background: `linear-gradient(to bottom, ${theme.bgPrimary}, ${theme.bgSecondary})` }}>
         <p style={{ color: theme.textSecondary, fontSize: '0.85rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
-          Interested in a card?
+          {activeSection === 'buying' ? 'Have a card I\'m looking for?' : 'Interested in a card?'}
         </p>
         <a href="#" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: theme.textPrimary, textDecoration: 'none' }}>
           Instagram
