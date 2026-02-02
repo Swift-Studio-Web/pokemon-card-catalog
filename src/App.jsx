@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from './supabase';
 
 const theme = {
   bgPrimary: '#0a0a0a',
@@ -672,8 +673,10 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
 const App = () => {
   const [activeSection, setActiveSection] = useState('forsale');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -682,24 +685,40 @@ const App = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      // Migrate cards without section field
-      const parsed = JSON.parse(stored);
-      const migrated = parsed.map(c => ({ ...c, section: c.section || 'forsale' }));
-      setCards(migrated);
+  // Fetch cards from Supabase
+  const fetchCards = async () => {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching cards:', error);
+      // Fallback to localStorage if Supabase fails
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setCards(JSON.parse(stored));
+      } else {
+        setCards(defaultCards);
+      }
     } else {
-      setCards(defaultCards);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultCards));
+      // Transform data to match existing structure
+      const transformed = data.map(card => ({
+        id: card.id,
+        name: card.name,
+        image: card.image_url,
+        meta: card.meta || [],
+        sold: card.sold || false,
+        section: card.section || 'forsale',
+      }));
+      setCards(transformed);
     }
-  }, []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (cards.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-    }
-  }, [cards]);
+    fetchCards();
+  }, []);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -723,11 +742,88 @@ const App = () => {
     return () => { document.head.removeChild(link); document.head.removeChild(style); };
   }, []);
 
-  const handleSaveCard = (card) => {
-    if (editingCard) {
-      setCards(cards.map((c) => (c.id === card.id ? card : c)));
-    } else {
-      setCards([...cards, card]);
+  const uploadImage = async (base64Image) => {
+    // If it's already a URL (not base64), return it
+    if (!base64Image.startsWith('data:')) {
+      return base64Image;
+    }
+
+    // Convert base64 to blob
+    const base64Data = base64Image.split(',')[1];
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/png' });
+
+    // Generate unique filename
+    const fileName = `card-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+
+    // Upload to Supabase storage
+    const { data, error } = await supabase.storage
+      .from('card-images')
+      .upload(fileName, blob);
+
+    if (error) {
+      console.error('Error uploading image:', error);
+      return base64Image; // Fallback to base64 if upload fails
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  const handleSaveCard = async (card) => {
+    try {
+      // Upload image if it's base64
+      const imageUrl = await uploadImage(card.image);
+
+      if (editingCard) {
+        // Update existing card
+        const { error } = await supabase
+          .from('cards')
+          .update({
+            name: card.name,
+            image_url: imageUrl,
+            meta: card.meta,
+            sold: card.sold,
+            section: card.section,
+          })
+          .eq('id', card.id);
+
+        if (error) throw error;
+        setCards(cards.map((c) => (c.id === card.id ? { ...card, image: imageUrl } : c)));
+      } else {
+        // Insert new card
+        const { data, error } = await supabase
+          .from('cards')
+          .insert({
+            name: card.name,
+            image_url: imageUrl,
+            meta: card.meta,
+            sold: card.sold,
+            section: card.section,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setCards([{ ...card, id: data.id, image: imageUrl }, ...cards]);
+      }
+    } catch (error) {
+      console.error('Error saving card:', error);
+      // Fallback to local state
+      if (editingCard) {
+        setCards(cards.map((c) => (c.id === card.id ? card : c)));
+      } else {
+        setCards([{ ...card, id: Date.now().toString() }, ...cards]);
+      }
     }
     setShowModal(false);
     setEditingCard(null);
@@ -743,20 +839,56 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    if (deleteTarget === 'bulk') {
-      setCards(cards.filter((c) => !selectedCards.includes(c.id)));
-      exitSelectMode();
-    } else {
-      setCards(cards.filter((c) => c.id !== deleteTarget));
+  const confirmDelete = async () => {
+    try {
+      if (deleteTarget === 'bulk') {
+        const { error } = await supabase
+          .from('cards')
+          .delete()
+          .in('id', selectedCards);
+
+        if (error) throw error;
+        setCards(cards.filter((c) => !selectedCards.includes(c.id)));
+        exitSelectMode();
+      } else {
+        const { error } = await supabase
+          .from('cards')
+          .delete()
+          .eq('id', deleteTarget);
+
+        if (error) throw error;
+        setCards(cards.filter((c) => c.id !== deleteTarget));
+      }
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      // Fallback to local delete
+      if (deleteTarget === 'bulk') {
+        setCards(cards.filter((c) => !selectedCards.includes(c.id)));
+        exitSelectMode();
+      } else {
+        setCards(cards.filter((c) => c.id !== deleteTarget));
+      }
     }
     setShowDeleteModal(false);
     setDeleteTarget(null);
     setShowBulkEditModal(false);
   };
 
-  const handleToggleSold = (id) => {
-    setCards(cards.map((c) => (c.id === id ? { ...c, sold: !c.sold } : c)));
+  const handleToggleSold = async (id) => {
+    const card = cards.find((c) => c.id === id);
+    const newSoldStatus = !card.sold;
+
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .update({ sold: newSoldStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating card:', error);
+    }
+    setCards(cards.map((c) => (c.id === id ? { ...c, sold: newSoldStatus } : c)));
   };
 
   const handleSelectCard = (id) => {
@@ -765,7 +897,17 @@ const App = () => {
     );
   };
 
-  const handleBulkSetSold = (sold) => {
+  const handleBulkSetSold = async (sold) => {
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .update({ sold })
+        .in('id', selectedCards);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating cards:', error);
+    }
     setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold } : c)));
     exitSelectMode();
     setShowBulkEditModal(false);
@@ -780,6 +922,13 @@ const App = () => {
   const filteredCards = cards.filter((card) => {
     // First filter by section
     if (card.section !== activeSection) return false;
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = card.name.toLowerCase().includes(query);
+      const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
+      if (!matchesName && !matchesMeta) return false;
+    }
     // Then filter by category
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Slabs') return card.meta.some((m) => /psa|bgs|cgc/i.test(m));
@@ -898,7 +1047,7 @@ const App = () => {
             textAlign: 'center',
           }}
         >
-          Bakery TCG
+          Bakery TCG Catalog
         </h1>
         <div style={{ color: theme.textMuted, fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '1rem', display: 'flex', gap: '1.5rem' }}>
           {['Rare', 'Graded', 'Sealed', 'Japanese'].map((item, idx) => (
@@ -962,13 +1111,35 @@ const App = () => {
           background: 'rgba(10, 10, 10, 0.95)',
           backdropFilter: 'blur(12px)',
           zIndex: 100,
-          padding: '1rem 0',
+          padding: '1rem 2rem',
           borderBottom: `1px solid ${theme.border}`,
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
           gap: '2rem',
+          flexWrap: 'wrap',
         }}
       >
+        <div style={{ position: 'relative', minWidth: '200px' }}>
+          <input
+            type="text"
+            placeholder="Search cards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 16px 10px 40px',
+              background: theme.bgTertiary,
+              border: `1px solid ${theme.border}`,
+              borderRadius: '8px',
+              color: theme.textPrimary,
+              fontSize: '0.85rem',
+              fontFamily: "'DM Sans', sans-serif",
+              outline: 'none',
+            }}
+          />
+          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: theme.textMuted, fontSize: '0.9rem' }}>🔍</span>
+        </div>
         {filters.map((filter) => (
           <button
             key={filter}
@@ -1005,7 +1176,11 @@ const App = () => {
 
       {/* Card Grid */}
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '3rem 2rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '2.5rem 2rem' }}>
-        {filteredCards.length === 0 ? (
+        {loading ? (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
+            <p>Loading cards...</p>
+          </div>
+        ) : filteredCards.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
             <p>{isAdmin
               ? `No cards yet. Click "+ Add Card" to add ${activeSection === 'buying' ? 'cards you\'re looking for' : 'cards for sale'}.`
