@@ -1406,7 +1406,7 @@ const App = () => {
         ) : filteredCards.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
             <p>{isAdmin
-              ? `No cards yet. Click "+ Add Card" to add ${activeSection === 'buying' ? 'cards you\'re looking for' : 'cards for sale'}.`
+              ? `No cards yet. Click "+ Add Card" to add ${activeSection === 'buying' ? 'cards we\'re looking for' : 'cards for sale'}.`
               : activeSection === 'buying'
                 ? 'No cards in the wishlist yet.'
                 : 'No cards in this category.'}</p>
@@ -1433,7 +1433,7 @@ const App = () => {
       {/* Contact */}
       <section style={{ padding: '5rem 2rem 6rem', textAlign: 'center', background: `linear-gradient(to bottom, ${theme.bgPrimary}, ${theme.bgSecondary})` }}>
         <p style={{ color: theme.textSecondary, fontSize: '0.85rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
-          {activeSection === 'buying' ? 'Have a card I\'m looking for?' : 'Interested in a card?'}
+          {activeSection === 'buying' ? 'Have a card we\'re looking for?' : 'Interested in a card?'}
         </p>
         <a href="https://www.instagram.com/bakery.tcg" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: theme.textPrimary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5em' }}>
           <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1em', height: '1em' }}>
