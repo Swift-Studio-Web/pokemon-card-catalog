@@ -1158,7 +1158,7 @@ const App = () => {
             {isSelectMode ? `SELECT MODE · ${selectedCards.length} SELECTED` : 'ADMIN MODE'}
           </div>
         )}
-        <img src="/logo.png" alt="Bakery TCG" style={{ height: '80px', marginBottom: '1rem' }} />
+        <img src="/logo.png" alt="Bakery TCG" style={{ height: '140px', marginBottom: '1.5rem' }} />
         <h1
           style={{
             fontFamily: "'Bebas Neue', sans-serif",
@@ -1170,14 +1170,6 @@ const App = () => {
         >
           Bakery TCG Catalog
         </h1>
-        <div style={{ color: theme.textMuted, fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '1rem', display: 'flex', gap: '1.5rem' }}>
-          {['Rare', 'Graded', 'Sealed', 'Japanese'].map((item, idx) => (
-            <span key={idx}>
-              {item}
-              {idx < 3 && <span style={{ marginLeft: '1.5rem', color: theme.border }}>·</span>}
-            </span>
-          ))}
-        </div>
       </header>
 
       {/* Section Tabs */}
