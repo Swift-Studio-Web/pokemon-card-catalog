@@ -595,6 +595,7 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
         <img
           src={card.image}
           alt={card.name}
+          loading="lazy"
           style={{
             width: '100%',
             height: '100%',
@@ -661,6 +662,61 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
   );
 };
 
+// Toast Component
+const Toast = ({ message, type = 'error', onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: '2rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: type === 'error' ? theme.danger : theme.success,
+        color: '#fff',
+        padding: '14px 24px',
+        borderRadius: '8px',
+        fontSize: '0.9rem',
+        fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 500,
+        zIndex: 1001,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        animation: 'slideUp 0.3s ease',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+      }}
+    >
+      {message}
+      <button
+        onClick={onClose}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: '#fff',
+          fontSize: '1.2rem',
+          cursor: 'pointer',
+          padding: 0,
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+};
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'name-asc', label: 'Name (A-Z)' },
+  { value: 'name-desc', label: 'Name (Z-A)' },
+];
+
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 const ADMIN_SESSION_KEY = 'bakery-admin-session';
 const ADMIN_LOCKOUT_KEY = 'bakery-admin-lockout';
@@ -687,6 +743,8 @@ const App = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [sortBy, setSortBy] = useState('newest');
+  const [toast, setToast] = useState(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -786,6 +844,7 @@ const App = () => {
 
     if (error) {
       console.error('Error fetching cards:', error);
+      setToast({ message: 'Failed to load cards. Please refresh the page.', type: 'error' });
     } else {
       const transformed = data.map(card => ({
         id: card.id,
@@ -794,6 +853,7 @@ const App = () => {
         meta: card.meta || [],
         sold: card.sold || false,
         section: card.section || 'forsale',
+        createdAt: card.created_at,
       }));
       setCards(transformed);
     }
@@ -902,6 +962,7 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error saving card:', error);
+      setToast({ message: 'Failed to save card. Please try again.', type: 'error' });
     }
     setShowModal(false);
     setEditingCard(null);
@@ -939,6 +1000,7 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error deleting card:', error);
+      setToast({ message: 'Failed to delete card. Please try again.', type: 'error' });
     }
     setShowDeleteModal(false);
     setDeleteTarget(null);
@@ -958,6 +1020,8 @@ const App = () => {
       if (error) throw error;
     } catch (error) {
       console.error('Error updating card:', error);
+      setToast({ message: 'Failed to update card. Please try again.', type: 'error' });
+      return;
     }
     setCards(cards.map((c) => (c.id === id ? { ...c, sold: newSoldStatus } : c)));
   };
@@ -990,24 +1054,41 @@ const App = () => {
   };
 
   const filters = ['All', 'Raw', 'Slabs', 'Japanese', 'Sealed'];
-  const filteredCards = cards.filter((card) => {
-    // First filter by section
-    if (card.section !== activeSection) return false;
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesName = card.name.toLowerCase().includes(query);
-      const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
-      if (!matchesName && !matchesMeta) return false;
-    }
-    // Then filter by category
-    if (activeFilter === 'All') return true;
-    if (activeFilter === 'Slabs') return card.meta.some((m) => /psa|bgs|cgc/i.test(m));
-    return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
-  });
+  const filteredCards = cards
+    .filter((card) => {
+      // First filter by section
+      if (card.section !== activeSection) return false;
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = card.name.toLowerCase().includes(query);
+        const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
+        if (!matchesName && !matchesMeta) return false;
+      }
+      // Then filter by category
+      if (activeFilter === 'All') return true;
+      if (activeFilter === 'Slabs') return card.meta.some((m) => /psa|bgs|cgc/i.test(m));
+      return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'newest':
+        default:
+          return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+    });
 
   return (
     <div>
+      {/* Toast Notification */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Admin Login Modal */}
       <Modal isOpen={showAdminLogin} onClose={() => setShowAdminLogin(false)} size="sm">
         <form onSubmit={handleAdminLogin}>
@@ -1295,6 +1376,25 @@ const App = () => {
             />
           </button>
         ))}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{
+            background: theme.bgTertiary,
+            border: `1px solid ${theme.border}`,
+            borderRadius: '6px',
+            color: theme.textSecondary,
+            fontSize: '0.75rem',
+            fontFamily: "'DM Sans', sans-serif",
+            padding: '8px 12px',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </nav>
 
       {/* Card Grid */}
