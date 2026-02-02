@@ -19,15 +19,6 @@ const theme = {
   border: '#2a2a2a',
 };
 
-const STORAGE_KEY = 'pokemon-card-catalog';
-
-const defaultCards = [
-  { id: '1', name: 'Piplup', image: '/cards/piplup.png', meta: ['Raw', 'English', 'Ultra Prism'], sold: false, section: 'forsale' },
-  { id: '2', name: 'Pikachu', image: '/cards/pikachu.jpg', meta: ['Raw', 'English', 'Base Set'], sold: false, section: 'forsale' },
-  { id: '3', name: 'fat gay pikachu', image: '/cards/fat-pikachu.jpg', meta: ['Raw', 'Japanese', 'Promo'], sold: false, section: 'forsale' },
-  { id: '4', name: 'Pikachu Illustrator', image: '/cards/pikachu-illustrator.jpg', meta: ['PSA 10', 'Japanese', '1998'], sold: true, section: 'forsale' },
-  { id: '5', name: 'Italian Charizard', image: '/cards/italian-charizard.png', meta: ['Raw', 'Italian', 'Base Set'], sold: false, section: 'buying' },
-];
 
 // Styled Button Component
 const Button = ({ variant = 'default', size = 'md', style = {}, children, ...props }) => {
@@ -670,11 +661,23 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
   );
 };
 
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+const ADMIN_SESSION_KEY = 'bakery-admin-session';
+const ADMIN_LOCKOUT_KEY = 'bakery-admin-lockout';
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+const MAX_ATTEMPTS = 5;
+
 const App = () => {
   const [activeSection, setActiveSection] = useState('forsale');
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [isLockedOut, setIsLockedOut] = useState(false);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -685,6 +688,95 @@ const App = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
 
+  // Check for existing session on mount
+  useEffect(() => {
+    const session = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (session) {
+      const { expiry } = JSON.parse(session);
+      if (Date.now() < expiry) {
+        setIsAdmin(true);
+      } else {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+      }
+    }
+  }, []);
+
+  // Check for ?admin in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('admin') && !isAdmin) {
+      setShowAdminLogin(true);
+    }
+  }, [isAdmin]);
+
+  // Check lockout status
+  useEffect(() => {
+    const checkLockout = () => {
+      const lockout = localStorage.getItem(ADMIN_LOCKOUT_KEY);
+      if (lockout) {
+        const { until } = JSON.parse(lockout);
+        if (Date.now() < until) {
+          setIsLockedOut(true);
+          setLockoutRemaining(Math.ceil((until - Date.now()) / 1000 / 60));
+        } else {
+          localStorage.removeItem(ADMIN_LOCKOUT_KEY);
+          setIsLockedOut(false);
+        }
+      }
+    };
+    checkLockout();
+    const interval = setInterval(checkLockout, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+
+    if (isLockedOut) return;
+
+    if (adminPassword === ADMIN_PASSWORD) {
+      // Success - save session
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+        expiry: Date.now() + SESSION_DURATION
+      }));
+      localStorage.removeItem(ADMIN_LOCKOUT_KEY);
+      setIsAdmin(true);
+      setShowAdminLogin(false);
+      setAdminPassword('');
+      setAdminError('');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      // Failed attempt - track it
+      const lockout = localStorage.getItem(ADMIN_LOCKOUT_KEY);
+      let attempts = 1;
+
+      if (lockout) {
+        const data = JSON.parse(lockout);
+        attempts = (data.attempts || 0) + 1;
+      }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        // Lock out
+        localStorage.setItem(ADMIN_LOCKOUT_KEY, JSON.stringify({
+          until: Date.now() + LOCKOUT_DURATION,
+          attempts
+        }));
+        setIsLockedOut(true);
+        setLockoutRemaining(15);
+        setAdminError(`Too many attempts. Locked out for 15 minutes.`);
+      } else {
+        localStorage.setItem(ADMIN_LOCKOUT_KEY, JSON.stringify({ attempts }));
+        setAdminError(`Incorrect password. ${MAX_ATTEMPTS - attempts} attempts remaining.`);
+      }
+    }
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setIsAdmin(false);
+    exitSelectMode();
+  };
+
   // Fetch cards from Supabase
   const fetchCards = async () => {
     const { data, error } = await supabase
@@ -694,15 +786,7 @@ const App = () => {
 
     if (error) {
       console.error('Error fetching cards:', error);
-      // Fallback to localStorage if Supabase fails
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setCards(JSON.parse(stored));
-      } else {
-        setCards(defaultCards);
-      }
     } else {
-      // Transform data to match existing structure
       const transformed = data.map(card => ({
         id: card.id,
         name: card.name,
@@ -818,12 +902,6 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error saving card:', error);
-      // Fallback to local state
-      if (editingCard) {
-        setCards(cards.map((c) => (c.id === card.id ? card : c)));
-      } else {
-        setCards([{ ...card, id: Date.now().toString() }, ...cards]);
-      }
     }
     setShowModal(false);
     setEditingCard(null);
@@ -861,13 +939,6 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error deleting card:', error);
-      // Fallback to local delete
-      if (deleteTarget === 'bulk') {
-        setCards(cards.filter((c) => !selectedCards.includes(c.id)));
-        exitSelectMode();
-      } else {
-        setCards(cards.filter((c) => c.id !== deleteTarget));
-      }
     }
     setShowDeleteModal(false);
     setDeleteTarget(null);
@@ -937,6 +1008,55 @@ const App = () => {
 
   return (
     <div>
+      {/* Admin Login Modal */}
+      <Modal isOpen={showAdminLogin} onClose={() => setShowAdminLogin(false)} size="sm">
+        <form onSubmit={handleAdminLogin}>
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <div style={{ ...modalIconStyle, background: 'rgba(212, 175, 55, 0.1)' }}>
+              <span style={{ fontSize: '2rem' }}>🔐</span>
+            </div>
+            <h3 style={modalTitleStyle}>Admin Access</h3>
+            <p style={{ ...modalTextStyle, marginBottom: '1.5rem' }}>
+              {isLockedOut ? `Too many failed attempts. Try again in ${lockoutRemaining} minute${lockoutRemaining !== 1 ? 's' : ''}.` : 'Enter password to continue'}
+            </p>
+            {!isLockedOut && (
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => { setAdminPassword(e.target.value); setAdminError(''); }}
+                placeholder="Password"
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  background: theme.bgTertiary,
+                  border: `1px solid ${adminError ? theme.danger : theme.border}`,
+                  borderRadius: '8px',
+                  color: theme.textPrimary,
+                  fontSize: '0.9rem',
+                  fontFamily: "'DM Sans', sans-serif",
+                  outline: 'none',
+                  marginBottom: adminError ? '0.5rem' : '1.5rem',
+                }}
+                autoFocus
+              />
+            )}
+            {adminError && !isLockedOut && (
+              <p style={{ color: theme.danger, fontSize: '0.8rem', marginBottom: '1rem' }}>{adminError}</p>
+            )}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Button variant="ghost" size="lg" type="button" onClick={() => { setShowAdminLogin(false); setAdminPassword(''); setAdminError(''); window.history.replaceState({}, '', window.location.pathname); }} style={{ flex: 1 }}>
+                {isLockedOut ? 'Close' : 'Cancel'}
+              </Button>
+              {!isLockedOut && (
+                <Button variant="primary" size="lg" type="submit" style={{ flex: 1 }}>
+                  Login
+                </Button>
+              )}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
       {/* Delete Confirmation Modal */}
       <DeleteModal
         isOpen={showDeleteModal}
@@ -961,14 +1081,14 @@ const App = () => {
         <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} activeSection={activeSection} />
       </Modal>
 
-      {/* Floating Admin Controls */}
-      <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', display: 'flex', gap: '12px', alignItems: 'center', zIndex: 999 }}>
-        {isAdmin && isSelectMode && selectedCards.length > 0 && (
-          <Button variant="primary" size="lg" onClick={() => setShowBulkEditModal(true)} style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-            Edit {selectedCards.length} Selected
-          </Button>
-        )}
-        {isAdmin && (
+      {/* Floating Admin Controls - Only visible when logged in */}
+      {isAdmin && (
+        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', display: 'flex', gap: '12px', alignItems: 'center', zIndex: 999 }}>
+          {isSelectMode && selectedCards.length > 0 && (
+            <Button variant="primary" size="lg" onClick={() => setShowBulkEditModal(true)} style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+              Edit {selectedCards.length} Selected
+            </Button>
+          )}
           <Button
             variant={isSelectMode ? 'primary' : 'default'}
             size="lg"
@@ -977,33 +1097,34 @@ const App = () => {
           >
             {isSelectMode ? 'Cancel' : 'Select'}
           </Button>
-        )}
-        {isAdmin && !isSelectMode && (
-          <Button variant="primary" size="lg" onClick={() => { setEditingCard(null); setShowModal(true); }} style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-            + Add Card
-          </Button>
-        )}
-        <button
-          onClick={() => { setIsAdmin(!isAdmin); if (isAdmin) exitSelectMode(); }}
-          style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            background: isAdmin ? theme.accent : theme.bgSecondary,
-            border: `2px solid ${isAdmin ? theme.accent : theme.border}`,
-            color: isAdmin ? theme.bgPrimary : theme.textPrimary,
-            fontSize: '1.4rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-          }}
-        >
-          {isAdmin ? '×' : '⚙'}
-        </button>
-      </div>
+          {!isSelectMode && (
+            <Button variant="primary" size="lg" onClick={() => { setEditingCard(null); setShowModal(true); }} style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+              + Add Card
+            </Button>
+          )}
+          <button
+            onClick={handleAdminLogout}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: theme.accent,
+              border: `2px solid ${theme.accent}`,
+              color: theme.bgPrimary,
+              fontSize: '1.4rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            }}
+            title="Logout"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Hero */}
       <header
@@ -1103,6 +1224,36 @@ const App = () => {
         ))}
       </div>
 
+      {/* Search Bar */}
+      <div
+        style={{
+          maxWidth: '500px',
+          margin: '0 auto',
+          padding: '1.5rem 2rem',
+        }}
+      >
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            placeholder="Search cards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '14px 20px 14px 48px',
+              background: theme.bgSecondary,
+              border: `1px solid ${theme.border}`,
+              borderRadius: '12px',
+              color: theme.textPrimary,
+              fontSize: '0.95rem',
+              fontFamily: "'DM Sans', sans-serif",
+              outline: 'none',
+            }}
+          />
+          <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: theme.textMuted, fontSize: '1rem' }}>🔍</span>
+        </div>
+      </div>
+
       {/* Filter Nav */}
       <nav
         style={{
@@ -1120,26 +1271,6 @@ const App = () => {
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ position: 'relative', minWidth: '200px' }}>
-          <input
-            type="text"
-            placeholder="Search cards..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 16px 10px 40px',
-              background: theme.bgTertiary,
-              border: `1px solid ${theme.border}`,
-              borderRadius: '8px',
-              color: theme.textPrimary,
-              fontSize: '0.85rem',
-              fontFamily: "'DM Sans', sans-serif",
-              outline: 'none',
-            }}
-          />
-          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: theme.textMuted, fontSize: '0.9rem' }}>🔍</span>
-        </div>
         {filters.map((filter) => (
           <button
             key={filter}
