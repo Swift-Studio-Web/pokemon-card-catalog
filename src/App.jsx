@@ -888,9 +888,7 @@ const App = () => {
             {isSelectMode ? `SELECT MODE · ${selectedCards.length} SELECTED` : 'ADMIN MODE'}
           </div>
         )}
-        <p style={{ color: theme.textSecondary, fontSize: '0.8rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-          Pokemon Card Inventory
-        </p>
+        <img src="/logo.png" alt="Bakery TCG" style={{ height: '80px', marginBottom: '1rem' }} />
         <h1
           style={{
             fontFamily: "'Bebas Neue', sans-serif",
@@ -900,7 +898,7 @@ const App = () => {
             textAlign: 'center',
           }}
         >
-          Card Catalog
+          Bakery TCG
         </h1>
         <div style={{ color: theme.textMuted, fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '1rem', display: 'flex', gap: '1.5rem' }}>
           {['Rare', 'Graded', 'Sealed', 'Japanese'].map((item, idx) => (
@@ -1039,19 +1037,15 @@ const App = () => {
         <p style={{ color: theme.textSecondary, fontSize: '0.85rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
           {activeSection === 'buying' ? 'Have a card I\'m looking for?' : 'Interested in a card?'}
         </p>
-        <a href="#" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: theme.textPrimary, textDecoration: 'none' }}>
-          Instagram
+        <a href="https://www.instagram.com/bakery.tcg" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: theme.textPrimary, textDecoration: 'none' }}>
+          @bakery.tcg
         </a>
-        <br />
-        <a href="#" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.2rem, 3vw, 2rem)', color: theme.textMuted, textDecoration: 'none', marginTop: '0.5rem', display: 'inline-block' }}>
-          Facebook Marketplace
-        </a>
-        <p style={{ color: theme.textMuted, marginTop: '2rem', fontSize: '0.75rem' }}>DM to inquire · All sales via social media</p>
+        <p style={{ color: theme.textMuted, marginTop: '2rem', fontSize: '0.75rem' }}>DM on Instagram to inquire</p>
       </section>
 
       {/* Footer */}
       <footer style={{ padding: '2rem', textAlign: 'center', borderTop: `1px solid ${theme.border}` }}>
-        <p style={{ fontSize: '0.7rem', color: theme.textMuted }}>© {new Date().getFullYear()} Card Catalog</p>
+        <p style={{ fontSize: '0.7rem', color: theme.textMuted }}>© {new Date().getFullYear()} Bakery TCG</p>
         <p style={{ fontSize: '0.65rem', color: theme.bgTertiary, marginTop: '0.5rem' }}>Pokemon is a trademark of Nintendo. Not affiliated.</p>
       </footer>
     </div>
