@@ -1032,6 +1032,7 @@ const App = () => {
   };
 
   const handleBulkDelete = () => {
+    setShowBulkEditModal(false);
     setDeleteTarget('bulk');
     setShowDeleteModal(true);
   };
