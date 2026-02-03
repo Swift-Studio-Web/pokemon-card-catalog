@@ -809,6 +809,7 @@ const App = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [toast, setToast] = useState(null);
   const [viewingCard, setViewingCard] = useState(null);
+  const [showExitAdminModal, setShowExitAdminModal] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -898,6 +899,14 @@ const App = () => {
     setAdminPassword('');
     setAdminError('');
     window.history.replaceState({}, '', window.location.pathname);
+  };
+
+  const handleExitAdmin = () => {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setIsAdmin(false);
+    setIsSelectMode(false);
+    setSelectedCards([]);
+    setShowExitAdminModal(false);
   };
 
   // Fetch cards from Supabase
@@ -1215,6 +1224,27 @@ const App = () => {
         </form>
       </Modal>
 
+      {/* Exit Admin Confirmation Modal */}
+      <Modal isOpen={showExitAdminModal} onClose={() => setShowExitAdminModal(false)} size="sm">
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <div style={{ ...modalIconStyle, background: 'rgba(212, 175, 55, 0.1)' }}>
+            <span style={{ fontSize: '2rem' }}>👋</span>
+          </div>
+          <h3 style={modalTitleStyle}>Exit Admin Mode?</h3>
+          <p style={modalTextStyle}>
+            You will need to log in again to make changes.
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button variant="ghost" size="lg" onClick={() => setShowExitAdminModal(false)} style={{ flex: 1 }}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="lg" onClick={handleExitAdmin} style={{ flex: 1 }}>
+              Exit Admin
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Delete Confirmation Modal */}
       <DeleteModal
         isOpen={showDeleteModal}
@@ -1274,35 +1304,27 @@ const App = () => {
           background: `radial-gradient(ellipse at 50% 0%, ${theme.bgSecondary} 0%, ${theme.bgPrimary} 70%)`,
         }}
       >
-        {isAdmin && (
+        {isAdmin && !isSelectMode && (
           <button
-            onClick={() => {
-              localStorage.removeItem(ADMIN_SESSION_KEY);
-              setIsAdmin(false);
-              setIsSelectMode(false);
-              setSelectedCards([]);
-            }}
+            onClick={() => setShowExitAdminModal(true)}
             style={{
               position: 'absolute',
               top: '1rem',
               right: '1rem',
-              background: theme.accent,
-              color: theme.bgPrimary,
-              padding: '8px 16px',
+              background: theme.bgTertiary,
+              color: theme.textSecondary,
+              padding: '10px 16px',
               borderRadius: '6px',
               fontSize: '0.7rem',
               fontWeight: 600,
-              letterSpacing: '0.08em',
-              border: 'none',
+              letterSpacing: '0.05em',
+              border: `1px solid ${theme.border}`,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
               zIndex: 10,
+              transition: 'all 0.2s ease',
             }}
           >
-            {isSelectMode ? `SELECT · ${selectedCards.length}` : 'ADMIN'}
-            <span style={{ fontSize: '1rem', lineHeight: 1 }}>×</span>
+            EXIT ADMIN MODE
           </button>
         )}
         <img src="/logo.png" alt="Bakery TCG" style={{ height: '140px', marginBottom: '1.5rem' }} />
