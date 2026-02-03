@@ -1275,24 +1275,35 @@ const App = () => {
         }}
       >
         {isAdmin && (
-          <div
+          <button
+            onClick={() => {
+              localStorage.removeItem(ADMIN_SESSION_KEY);
+              setIsAdmin(false);
+              setIsSelectMode(false);
+              setSelectedCards([]);
+            }}
             style={{
               position: 'absolute',
               top: '1rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
+              right: '1rem',
               background: theme.accent,
               color: theme.bgPrimary,
-              padding: '8px 20px',
+              padding: '8px 16px',
               borderRadius: '6px',
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               fontWeight: 600,
-              letterSpacing: '0.1em',
+              letterSpacing: '0.08em',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
               zIndex: 10,
             }}
           >
-            {isSelectMode ? `SELECT MODE · ${selectedCards.length} SELECTED` : 'ADMIN MODE'}
-          </div>
+            {isSelectMode ? `SELECT · ${selectedCards.length}` : 'ADMIN'}
+            <span style={{ fontSize: '1rem', lineHeight: 1 }}>×</span>
+          </button>
         )}
         <img src="/logo.png" alt="Bakery TCG" style={{ height: '140px', marginBottom: '1.5rem' }} />
         <h1
