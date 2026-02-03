@@ -201,8 +201,10 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
 const DRAFT_KEY = 'pokemon-card-draft';
 
 const SECTION_OPTIONS = [
-  { value: 'forsale', label: 'For Sale' },
-  { value: 'buying', label: 'Buying' },
+  { value: 'raw', label: 'Raw' },
+  { value: 'slabs', label: 'Slabs' },
+  { value: 'sealed', label: 'Sealed' },
+  { value: 'onepiece', label: 'One Piece' },
 ];
 
 const adminButtonBase = {
@@ -231,7 +233,7 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   const [image, setImage] = useState(card?.image || draft?.image || '');
   const [meta, setMeta] = useState(card?.meta?.join(', ') || draft?.meta || '');
   const [imagePreview, setImagePreview] = useState(card?.image || draft?.image || '');
-  const [section, setSection] = useState(card?.section || draft?.section || activeSection || 'forsale');
+  const [section, setSection] = useState(card?.section || draft?.section || activeSection || 'raw');
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -436,9 +438,8 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
 };
 
 // Bulk Edit Modal
-const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsold, onDelete, activeSection }) => {
+const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsold, onDelete }) => {
   const count = selectedCards.length;
-  const isBuying = activeSection === 'buying';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
@@ -448,16 +449,12 @@ const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsol
         </h2>
       </div>
       <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {!isBuying && (
-          <>
-            <Button variant="default" size="lg" onClick={onMarkSold} style={{ width: '100%', justifyContent: 'flex-start' }}>
-              <span>✓</span> Mark as Sold
-            </Button>
-            <Button variant="default" size="lg" onClick={onMarkUnsold} style={{ width: '100%', justifyContent: 'flex-start' }}>
-              <span>↩</span> Mark as Available
-            </Button>
-          </>
-        )}
+        <Button variant="default" size="lg" onClick={onMarkSold} style={{ width: '100%', justifyContent: 'flex-start' }}>
+          <span>✓</span> Mark as Sold
+        </Button>
+        <Button variant="default" size="lg" onClick={onMarkUnsold} style={{ width: '100%', justifyContent: 'flex-start' }}>
+          <span>↩</span> Mark as Available
+        </Button>
         <Button variant="danger" size="lg" onClick={onDelete} style={{ width: '100%', justifyContent: 'flex-start' }}>
           <span>🗑</span> Delete Selected
         </Button>
@@ -472,8 +469,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsol
 };
 
 // Card Component
-const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect, activeSection }) => {
-  const isBuying = activeSection === 'buying';
+const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -549,20 +545,18 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
           >
             Edit
           </button>
-          {!isBuying && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleSold(card.id); }}
-              style={{
-                ...adminButtonBase,
-                flex: 1,
-                background: card.sold ? theme.accent : 'rgba(20, 20, 20, 0.95)',
-                border: `1px solid ${card.sold ? theme.accent : theme.border}`,
-                color: card.sold ? theme.bgPrimary : theme.textPrimary,
-              }}
-            >
-              {card.sold ? 'Unmark' : 'Sold'}
-            </button>
-          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSold(card.id); }}
+            style={{
+              ...adminButtonBase,
+              flex: 1,
+              background: card.sold ? theme.accent : 'rgba(20, 20, 20, 0.95)',
+              border: `1px solid ${card.sold ? theme.accent : theme.border}`,
+              color: card.sold ? theme.bgPrimary : theme.textPrimary,
+            }}
+          >
+            {card.sold ? 'Unmark' : 'Sold'}
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
             style={{
@@ -725,7 +719,7 @@ const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 
 const App = () => {
-  const [activeSection, setActiveSection] = useState('forsale');
+  const [activeSection, setActiveSection] = useState('raw');
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -852,7 +846,7 @@ const App = () => {
         image: card.image_url,
         meta: card.meta || [],
         sold: card.sold || false,
-        section: card.section || 'forsale',
+        section: card.section || 'raw',
         createdAt: card.created_at,
       }));
       setCards(transformed);
@@ -1053,7 +1047,7 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
-  const filters = ['All', 'Raw', 'Slabs', 'Japanese', 'Sealed'];
+  const filters = ['All', 'Japanese', 'English', 'PSA', 'BGS', 'CGC'];
   const filteredCards = cards
     .filter((card) => {
       // First filter by section
@@ -1067,7 +1061,6 @@ const App = () => {
       }
       // Then filter by category
       if (activeFilter === 'All') return true;
-      if (activeFilter === 'Slabs') return card.meta.some((m) => /psa|bgs|cgc/i.test(m));
       return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
     })
     .sort((a, b) => {
@@ -1154,7 +1147,6 @@ const App = () => {
         onMarkSold={() => handleBulkSetSold(true)}
         onMarkUnsold={() => handleBulkSetSold(false)}
         onDelete={handleBulkDelete}
-        activeSection={activeSection}
       />
 
       {/* Card Form Modal */}
@@ -1406,10 +1398,8 @@ const App = () => {
         ) : filteredCards.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
             <p>{isAdmin
-              ? `No cards yet. Click "+ Add Card" to add ${activeSection === 'buying' ? 'cards we\'re looking for' : 'cards for sale'}.`
-              : activeSection === 'buying'
-                ? 'No cards in the wishlist yet.'
-                : 'No cards in this category.'}</p>
+              ? 'No cards yet. Click "+ Add Card" to add cards.'
+              : 'No cards in this category.'}</p>
           </div>
         ) : (
           filteredCards.map((card, index) => (
@@ -1424,7 +1414,6 @@ const App = () => {
               onEdit={(c) => { setEditingCard(c); setShowModal(true); }}
               onDelete={handleDeleteCard}
               onToggleSold={handleToggleSold}
-              activeSection={activeSection}
             />
           ))
         )}
@@ -1433,7 +1422,7 @@ const App = () => {
       {/* Contact */}
       <section style={{ padding: '5rem 2rem 6rem', textAlign: 'center', background: `linear-gradient(to bottom, ${theme.bgPrimary}, ${theme.bgSecondary})` }}>
         <p style={{ color: theme.textSecondary, fontSize: '0.85rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
-          {activeSection === 'buying' ? 'Have a card we\'re looking for?' : 'Interested in a card?'}
+          Interested in a card?
         </p>
         <a href="https://www.instagram.com/bakery.tcg" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: theme.textPrimary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5em' }}>
           <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1em', height: '1em' }}>
