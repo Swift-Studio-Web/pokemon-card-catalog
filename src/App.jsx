@@ -219,7 +219,7 @@ const adminButtonBase = {
 };
 
 // Card Form Modal
-const CardForm = ({ card, onSave, onCancel, activeSection }) => {
+const CardForm = ({ card, onSave, onCancel, activeFilter }) => {
   // Load draft if no card is being edited
   const loadDraft = () => {
     if (card) return null;
@@ -233,7 +233,7 @@ const CardForm = ({ card, onSave, onCancel, activeSection }) => {
   const [image, setImage] = useState(card?.image || draft?.image || '');
   const [meta, setMeta] = useState(card?.meta?.join(', ') || draft?.meta || '');
   const [imagePreview, setImagePreview] = useState(card?.image || draft?.image || '');
-  const [section, setSection] = useState(card?.section || draft?.section || activeSection || 'raw');
+  const [section, setSection] = useState(card?.section || draft?.section || (activeFilter !== 'All' ? activeFilter.toLowerCase().replace(' ', '') : 'raw'));
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -719,7 +719,7 @@ const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 
 const App = () => {
-  const [activeSection, setActiveSection] = useState('raw');
+  const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -1046,10 +1046,9 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
+  const filters = ['All', 'Raw', 'Slabs', 'Sealed', 'One Piece'];
   const filteredCards = cards
     .filter((card) => {
-      // Filter by section
-      if (card.section !== activeSection) return false;
       // Filter by search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -1057,7 +1056,10 @@ const App = () => {
         const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
         if (!matchesName && !matchesMeta) return false;
       }
-      return true;
+      // Filter by category
+      if (activeFilter === 'All') return true;
+      const filterValue = activeFilter.toLowerCase().replace(' ', '');
+      return card.section === filterValue;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -1147,7 +1149,7 @@ const App = () => {
 
       {/* Card Form Modal */}
       <Modal isOpen={showModal} onClose={() => {}} preventBackdropClose>
-        <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} activeSection={activeSection} />
+        <CardForm card={editingCard} onSave={handleSaveCard} onCancel={() => { setShowModal(false); setEditingCard(null); }} activeFilter={activeFilter} />
       </Modal>
 
       {/* Floating Admin Controls - Only visible when logged in */}
@@ -1220,50 +1222,6 @@ const App = () => {
         </h1>
       </header>
 
-      {/* Section Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '0',
-          padding: '1.5rem 2rem 0',
-          background: theme.bgPrimary,
-        }}
-      >
-        {SECTION_OPTIONS.map((sec) => (
-          <button
-            key={sec.value}
-            onClick={() => { setActiveSection(sec.value); setSelectedCards([]); setIsSelectMode(false); }}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: '1.4rem',
-              letterSpacing: '0.05em',
-              color: activeSection === sec.value ? theme.textPrimary : theme.textMuted,
-              cursor: 'pointer',
-              padding: '0.75rem 2rem',
-              position: 'relative',
-              transition: 'color 0.2s ease',
-            }}
-          >
-            {sec.label}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '2rem',
-                right: '2rem',
-                height: '3px',
-                background: theme.accent,
-                transform: activeSection === sec.value ? 'scaleX(1)' : 'scaleX(0)',
-                transition: 'transform 0.2s ease',
-              }}
-            />
-          </button>
-        ))}
-      </div>
-
       {/* Search Bar */}
       <div
         style={{
@@ -1294,16 +1252,55 @@ const App = () => {
         </div>
       </div>
 
-      {/* Sort Bar */}
-      <div
+      {/* Filter Nav */}
+      <nav
         style={{
+          position: 'sticky',
+          top: 0,
+          background: 'rgba(10, 10, 10, 0.95)',
+          backdropFilter: 'blur(12px)',
+          zIndex: 100,
+          padding: '1rem 2rem',
+          borderBottom: `1px solid ${theme.border}`,
           display: 'flex',
-          justifyContent: 'flex-end',
-          maxWidth: '500px',
-          margin: '0 auto',
-          padding: '0 2rem 1rem',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '2rem',
+          flexWrap: 'wrap',
         }}
       >
+        {filters.map((filter) => (
+          <button
+            key={filter}
+            onClick={() => { setActiveFilter(filter); setSelectedCards([]); setIsSelectMode(false); }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: activeFilter === filter ? theme.textPrimary : theme.textMuted,
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              position: 'relative',
+              paddingBottom: '6px',
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {filter}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '2px',
+                background: theme.accent,
+                transform: activeFilter === filter ? 'scaleX(1)' : 'scaleX(0)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </button>
+        ))}
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
@@ -1323,7 +1320,7 @@ const App = () => {
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-      </div>
+      </nav>
 
       {/* Card Grid */}
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 0.75rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1.5rem 0.75rem' }}>
