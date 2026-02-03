@@ -460,7 +460,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedCards, onMarkSold, onMarkUnsol
 };
 
 // Card Component
-const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect }) => {
+const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, isSelectMode, isSelected, onSelect, onView }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -469,7 +469,13 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
     return () => clearTimeout(timer);
   }, [index]);
 
-  const handleClick = () => isSelectMode && onSelect(card.id);
+  const handleClick = () => {
+    if (isSelectMode) {
+      onSelect(card.id);
+    } else if (!isAdmin) {
+      onView(card);
+    }
+  };
 
   return (
     <div
@@ -643,6 +649,81 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
   );
 };
 
+// Image Viewer Modal (Lightbox)
+const ImageViewer = ({ card, onClose }) => {
+  if (!card) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.95)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1002,
+        padding: '1rem',
+        cursor: 'pointer',
+      }}
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: '1.5rem',
+          right: '1.5rem',
+          background: 'rgba(255,255,255,0.1)',
+          border: 'none',
+          color: '#fff',
+          fontSize: '2rem',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        ×
+      </button>
+      <div
+        style={{
+          maxWidth: '90vw',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={card.image}
+          alt={card.name}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '75vh',
+            objectFit: 'contain',
+            borderRadius: '8px',
+          }}
+        />
+        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <div style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+            {card.name}
+          </div>
+          {card.meta.length > 0 && (
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
+              {card.meta.join(' · ')}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Toast Component
 const Toast = ({ message, type = 'error', onClose }) => {
   useEffect(() => {
@@ -727,6 +808,7 @@ const App = () => {
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
   const [toast, setToast] = useState(null);
+  const [viewingCard, setViewingCard] = useState(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -864,6 +946,17 @@ const App = () => {
       ::selection { background: ${theme.accent}; color: ${theme.bgPrimary}; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1.5rem 0.75rem;
+      }
+      @media (min-width: 768px) {
+        .card-grid {
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 2rem 1.5rem;
+        }
+      }
     `;
     document.head.appendChild(style);
     return () => { document.head.removeChild(link); document.head.removeChild(style); };
@@ -1069,6 +1162,9 @@ const App = () => {
     <div>
       {/* Toast Notification */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Image Viewer */}
+      <ImageViewer card={viewingCard} onClose={() => setViewingCard(null)} />
 
       {/* Admin Login Modal */}
       <Modal isOpen={showAdminLogin} onClose={() => setShowAdminLogin(false)} size="sm">
@@ -1313,7 +1409,7 @@ const App = () => {
       </nav>
 
       {/* Card Grid */}
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 0.75rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1.5rem 0.75rem' }}>
+      <main className="card-grid" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem 5rem' }}>
         {loading ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
             <p>Loading cards...</p>
@@ -1334,6 +1430,7 @@ const App = () => {
               isSelectMode={isSelectMode}
               isSelected={selectedCards.includes(card.id)}
               onSelect={handleSelectCard}
+              onView={setViewingCard}
               onEdit={(c) => { setEditingCard(c); setShowModal(true); }}
               onDelete={handleDeleteCard}
               onToggleSold={handleToggleSold}
