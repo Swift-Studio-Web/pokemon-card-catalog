@@ -720,7 +720,6 @@ const MAX_ATTEMPTS = 5;
 
 const App = () => {
   const [activeSection, setActiveSection] = useState('raw');
-  const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -1047,10 +1046,9 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
-  const filters = ['All', 'Japanese', 'English', 'PSA', 'BGS', 'CGC'];
   const filteredCards = cards
     .filter((card) => {
-      // First filter by section
+      // Filter by section
       if (card.section !== activeSection) return false;
       // Filter by search query
       if (searchQuery) {
@@ -1059,9 +1057,7 @@ const App = () => {
         const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
         if (!matchesName && !matchesMeta) return false;
       }
-      // Then filter by category
-      if (activeFilter === 'All') return true;
-      return card.meta.some((m) => m.toLowerCase().includes(activeFilter.toLowerCase()));
+      return true;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -1237,7 +1233,7 @@ const App = () => {
         {SECTION_OPTIONS.map((sec) => (
           <button
             key={sec.value}
-            onClick={() => { setActiveSection(sec.value); setActiveFilter('All'); setSelectedCards([]); setIsSelectMode(false); }}
+            onClick={() => { setActiveSection(sec.value); setSelectedCards([]); setIsSelectMode(false); }}
             style={{
               background: 'none',
               border: 'none',
@@ -1298,55 +1294,16 @@ const App = () => {
         </div>
       </div>
 
-      {/* Filter Nav */}
-      <nav
+      {/* Sort Bar */}
+      <div
         style={{
-          position: 'sticky',
-          top: 0,
-          background: 'rgba(10, 10, 10, 0.95)',
-          backdropFilter: 'blur(12px)',
-          zIndex: 100,
-          padding: '1rem 2rem',
-          borderBottom: `1px solid ${theme.border}`,
           display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '2rem',
-          flexWrap: 'wrap',
+          justifyContent: 'flex-end',
+          maxWidth: '500px',
+          margin: '0 auto',
+          padding: '0 2rem 1rem',
         }}
       >
-        {filters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: activeFilter === filter ? theme.textPrimary : theme.textMuted,
-              fontSize: '0.8rem',
-              fontWeight: 500,
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              position: 'relative',
-              paddingBottom: '6px',
-              transition: 'color 0.2s ease',
-            }}
-          >
-            {filter}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: '2px',
-                background: theme.accent,
-                transform: activeFilter === filter ? 'scaleX(1)' : 'scaleX(0)',
-                transition: 'transform 0.2s ease',
-              }}
-            />
-          </button>
-        ))}
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
@@ -1366,7 +1323,7 @@ const App = () => {
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-      </nav>
+      </div>
 
       {/* Card Grid */}
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 0.75rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1.5rem 0.75rem' }}>
