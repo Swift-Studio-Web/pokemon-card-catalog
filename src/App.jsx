@@ -1175,27 +1175,6 @@ const App = () => {
               + Add Card
             </Button>
           )}
-          <button
-            onClick={handleAdminLogout}
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              background: theme.accent,
-              border: `2px solid ${theme.accent}`,
-              color: theme.bgPrimary,
-              fontSize: '1.4rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-            }}
-            title="Logout"
-          >
-            ×
-          </button>
         </div>
       )}
 
@@ -1390,7 +1369,7 @@ const App = () => {
       </nav>
 
       {/* Card Grid */}
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '3rem 2rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '2.5rem 2rem' }}>
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 0.75rem 5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1.5rem 0.75rem' }}>
         {loading ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
             <p>Loading cards...</p>
