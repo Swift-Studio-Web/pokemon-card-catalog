@@ -1,24 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 
 const theme = {
   bgPrimary: '#0a0a0a',
   bgSecondary: '#141414',
   bgTertiary: '#1c1c1c',
-  bgElevated: '#222222',
   textPrimary: '#f5f5f5',
   textSecondary: '#a0a0a0',
   textMuted: '#666666',
   accent: '#d4af37',
-  accentHover: '#e5c456',
-  accentSubtle: '#8b7355',
   soldBadge: '#333333',
   danger: '#dc3545',
-  dangerHover: '#c82333',
   success: '#28a745',
   border: '#2a2a2a',
 };
-
 
 // Styled Button Component
 const Button = ({ variant = 'default', size = 'md', style = {}, children, ...props }) => {
@@ -168,35 +163,31 @@ const UnsavedChangesModal = ({ isOpen, onDiscard, onSaveDraft, onCancel }) => (
 );
 
 // Delete Confirmation Modal
-const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => {
-  const isMultiple = cardCount > 1;
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm">
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ ...modalIconStyle, background: 'rgba(220, 53, 69, 0.1)' }}>
-          <span style={{ fontSize: '2rem' }}>🗑️</span>
-        </div>
-        <h3 style={modalTitleStyle}>
-          Delete {isMultiple ? `${cardCount} Cards` : 'Card'}?
-        </h3>
-        <p style={modalTextStyle}>
-          {isMultiple
-            ? `This will permanently remove ${cardCount} cards from your catalog.`
-            : 'This action cannot be undone. The card will be permanently removed.'}
-        </p>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <Button variant="ghost" size="lg" onClick={onClose} style={{ flex: 1 }}>
-            Cancel
-          </Button>
-          <Button variant="danger" size="lg" onClick={onConfirm} style={{ flex: 1 }}>
-            Delete
-          </Button>
-        </div>
+const DeleteModal = ({ isOpen, onClose, onConfirm, cardCount = 1 }) => (
+  <Modal isOpen={isOpen} onClose={onClose} size="sm">
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{ ...modalIconStyle, background: 'rgba(220, 53, 69, 0.1)' }}>
+        <span style={{ fontSize: '2rem' }}>🗑️</span>
       </div>
-    </Modal>
-  );
-};
+      <h3 style={modalTitleStyle}>
+        Delete {cardCount > 1 ? `${cardCount} Cards` : 'Card'}?
+      </h3>
+      <p style={modalTextStyle}>
+        {cardCount > 1
+          ? `This will permanently remove ${cardCount} cards from your catalog.`
+          : 'This action cannot be undone. The card will be permanently removed.'}
+      </p>
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button variant="ghost" size="lg" onClick={onClose} style={{ flex: 1 }}>
+          Cancel
+        </Button>
+        <Button variant="danger" size="lg" onClick={onConfirm} style={{ flex: 1 }}>
+          Delete
+        </Button>
+      </div>
+    </div>
+  </Modal>
+);
 
 const DRAFT_KEY = 'pokemon-card-draft';
 
@@ -478,18 +469,14 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
     return () => clearTimeout(timer);
   }, [index]);
 
-  const handleClick = () => {
-    if (isSelectMode) {
-      onSelect(card.id);
-    }
-  };
+  const handleClick = () => isSelectMode && onSelect(card.id);
 
   return (
     <div
       onClick={handleClick}
       style={{
         position: 'relative',
-        cursor: isSelectMode ? 'pointer' : card.sold ? 'default' : 'pointer',
+        cursor: !isSelectMode && card.sold ? 'default' : 'pointer',
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? (isHovered && !card.sold && !isSelectMode ? 'translateY(-6px)' : 'translateY(0)') : 'translateY(20px)',
         transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -711,6 +698,8 @@ const SORT_OPTIONS = [
   { value: 'name-desc', label: 'Name (Z-A)' },
 ];
 
+const FILTERS = ['All', 'Raw', 'Slabs', 'Sealed', 'One Piece'];
+
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 const ADMIN_SESSION_KEY = 'bakery-admin-session';
 const ADMIN_LOCKOUT_KEY = 'bakery-admin-lockout';
@@ -822,10 +811,11 @@ const App = () => {
     }
   };
 
-  const handleAdminLogout = () => {
-    localStorage.removeItem(ADMIN_SESSION_KEY);
-    setIsAdmin(false);
-    exitSelectMode();
+  const closeAdminLogin = () => {
+    setShowAdminLogin(false);
+    setAdminPassword('');
+    setAdminError('');
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   // Fetch cards from Supabase
@@ -1046,7 +1036,6 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
-  const filters = ['All', 'Raw', 'Slabs', 'Sealed', 'One Piece'];
   const filteredCards = cards
     .filter((card) => {
       // Filter by search query
@@ -1116,7 +1105,7 @@ const App = () => {
               <p style={{ color: theme.danger, fontSize: '0.8rem', marginBottom: '1rem' }}>{adminError}</p>
             )}
             <div style={{ display: 'flex', gap: '12px' }}>
-              <Button variant="ghost" size="lg" type="button" onClick={() => { setShowAdminLogin(false); setAdminPassword(''); setAdminError(''); window.history.replaceState({}, '', window.location.pathname); }} style={{ flex: 1 }}>
+              <Button variant="ghost" size="lg" type="button" onClick={closeAdminLogin} style={{ flex: 1 }}>
                 {isLockedOut ? 'Close' : 'Cancel'}
               </Button>
               {!isLockedOut && (
@@ -1269,7 +1258,7 @@ const App = () => {
           flexWrap: 'wrap',
         }}
       >
-        {filters.map((filter) => (
+        {FILTERS.map((filter) => (
           <button
             key={filter}
             onClick={() => { setActiveFilter(filter); setSelectedCards([]); setIsSelectMode(false); }}
