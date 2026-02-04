@@ -1003,12 +1003,12 @@ const App = () => {
       .card-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 1.5rem 0.75rem;
+        gap: 1.5rem 1rem;
       }
       @media (min-width: 768px) {
         .card-grid {
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 2rem 1.5rem;
+          gap: 2.5rem 2rem;
         }
       }
     `;
