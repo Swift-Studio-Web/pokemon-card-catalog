@@ -465,7 +465,8 @@ const CardContainer = ({ card, index, onEdit, onDelete, onToggleSold, isAdmin, i
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), index * 60);
+    // Faster staggered animation (30ms instead of 60ms, capped at 12 cards)
+    const timer = setTimeout(() => setIsVisible(true), Math.min(index, 12) * 30);
     return () => clearTimeout(timer);
   }, [index]);
 
@@ -788,9 +789,12 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 
+const CARDS_PER_PAGE = 24;
+
 const App = () => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -798,6 +802,8 @@ const App = () => {
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [cards, setCards] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
@@ -851,6 +857,15 @@ const App = () => {
     const interval = setInterval(checkLockout, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to page 1 on new search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
@@ -909,12 +924,40 @@ const App = () => {
     setShowExitAdminModal(false);
   };
 
-  // Fetch cards from Supabase
+  // Fetch cards from Supabase with pagination
   const fetchCards = async () => {
-    const { data, error } = await supabase
-      .from('cards')
-      .select('*')
-      .order('created_at', { ascending: false });
+    setLoading(true);
+
+    // Build the query
+    let query = supabase.from('cards').select('*', { count: 'exact' });
+
+    // Apply section filter
+    if (activeFilter !== 'All') {
+      const filterValue = activeFilter.toLowerCase().replace(' ', '');
+      query = query.eq('section', filterValue);
+    }
+
+    // Apply search filter (searches name field)
+    if (debouncedSearch) {
+      query = query.ilike('name', `%${debouncedSearch}%`);
+    }
+
+    // Apply sorting
+    const sortConfig = {
+      'newest': { column: 'created_at', ascending: false },
+      'oldest': { column: 'created_at', ascending: true },
+      'name-asc': { column: 'name', ascending: true },
+      'name-desc': { column: 'name', ascending: false },
+    };
+    const sort = sortConfig[sortBy] || sortConfig.newest;
+    query = query.order(sort.column, { ascending: sort.ascending });
+
+    // Apply pagination
+    const from = (currentPage - 1) * CARDS_PER_PAGE;
+    const to = from + CARDS_PER_PAGE - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
 
     if (error) {
       console.error('Error fetching cards:', error);
@@ -930,13 +973,15 @@ const App = () => {
         createdAt: card.created_at,
       }));
       setCards(transformed);
+      setTotalCount(count || 0);
     }
     setLoading(false);
   };
 
+  // Fetch when page, filter, search, or sort changes
   useEffect(() => {
     fetchCards();
-  }, []);
+  }, [currentPage, activeFilter, debouncedSearch, sortBy]);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -1027,10 +1072,9 @@ const App = () => {
           .eq('id', card.id);
 
         if (error) throw error;
-        setCards(cards.map((c) => (c.id === card.id ? { ...card, image: imageUrl } : c)));
       } else {
         // Insert new card
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('cards')
           .insert({
             name: card.name,
@@ -1038,13 +1082,14 @@ const App = () => {
             meta: card.meta,
             sold: card.sold,
             section: card.section,
-          })
-          .select()
-          .single();
+          });
 
         if (error) throw error;
-        setCards([{ ...card, id: data.id, image: imageUrl }, ...cards]);
+        // Go to page 1 to see new card (if sorted by newest)
+        if (sortBy === 'newest') setCurrentPage(1);
       }
+      // Refetch to get updated data
+      fetchCards();
     } catch (error) {
       console.error('Error saving card:', error);
       setToast({ message: 'Failed to save card. Please try again.', type: 'error' });
@@ -1072,7 +1117,6 @@ const App = () => {
           .in('id', selectedCards);
 
         if (error) throw error;
-        setCards(cards.filter((c) => !selectedCards.includes(c.id)));
         exitSelectMode();
       } else {
         const { error } = await supabase
@@ -1081,8 +1125,9 @@ const App = () => {
           .eq('id', deleteTarget);
 
         if (error) throw error;
-        setCards(cards.filter((c) => c.id !== deleteTarget));
       }
+      // Refetch to update list and count
+      fetchCards();
     } catch (error) {
       console.error('Error deleting card:', error);
       setToast({ message: 'Failed to delete card. Please try again.', type: 'error' });
@@ -1096,6 +1141,9 @@ const App = () => {
     const card = cards.find((c) => c.id === id);
     const newSoldStatus = !card.sold;
 
+    // Optimistic update for better UX
+    setCards(cards.map((c) => (c.id === id ? { ...c, sold: newSoldStatus } : c)));
+
     try {
       const { error } = await supabase
         .from('cards')
@@ -1106,9 +1154,9 @@ const App = () => {
     } catch (error) {
       console.error('Error updating card:', error);
       setToast({ message: 'Failed to update card. Please try again.', type: 'error' });
-      return;
+      // Revert on error
+      setCards(cards.map((c) => (c.id === id ? { ...c, sold: !newSoldStatus } : c)));
     }
-    setCards(cards.map((c) => (c.id === id ? { ...c, sold: newSoldStatus } : c)));
   };
 
   const handleSelectCard = (id) => {
@@ -1118,6 +1166,9 @@ const App = () => {
   };
 
   const handleBulkSetSold = async (sold) => {
+    // Optimistic update
+    setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold } : c)));
+
     try {
       const { error } = await supabase
         .from('cards')
@@ -1127,8 +1178,9 @@ const App = () => {
       if (error) throw error;
     } catch (error) {
       console.error('Error updating cards:', error);
+      setToast({ message: 'Failed to update cards. Please try again.', type: 'error' });
+      fetchCards(); // Revert by refetching
     }
-    setCards(cards.map((c) => (selectedCards.includes(c.id) ? { ...c, sold } : c)));
     exitSelectMode();
     setShowBulkEditModal(false);
   };
@@ -1139,33 +1191,13 @@ const App = () => {
     setShowDeleteModal(true);
   };
 
-  const filteredCards = cards
-    .filter((card) => {
-      // Filter by search query
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = card.name.toLowerCase().includes(query);
-        const matchesMeta = card.meta.some((m) => m.toLowerCase().includes(query));
-        if (!matchesName && !matchesMeta) return false;
-      }
-      // Filter by category
-      if (activeFilter === 'All') return true;
-      const filterValue = activeFilter.toLowerCase().replace(' ', '');
-      return card.section === filterValue;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'oldest':
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        case 'name-asc':
-          return a.name.localeCompare(b.name);
-        case 'name-desc':
-          return b.name.localeCompare(a.name);
-        case 'newest':
-        default:
-          return new Date(b.createdAt) - new Date(a.createdAt);
-      }
-    });
+  const totalPages = Math.ceil(totalCount / CARDS_PER_PAGE);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    setSelectedCards([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div>
@@ -1391,7 +1423,7 @@ const App = () => {
         {FILTERS.map((filter) => (
           <button
             key={filter}
-            onClick={() => { setActiveFilter(filter); setSelectedCards([]); setIsSelectMode(false); }}
+            onClick={() => { setActiveFilter(filter); setCurrentPage(1); setSelectedCards([]); setIsSelectMode(false); }}
             style={{
               background: 'none',
               border: 'none',
@@ -1442,33 +1474,141 @@ const App = () => {
       </nav>
 
       {/* Card Grid */}
-      <main className="card-grid" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem 5rem' }}>
-        {loading ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
-            <p>Loading cards...</p>
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem 2rem' }}>
+        {/* Results count */}
+        {!loading && totalCount > 0 && (
+          <div style={{ marginBottom: '1rem', color: theme.textMuted, fontSize: '0.85rem' }}>
+            Showing {(currentPage - 1) * CARDS_PER_PAGE + 1}-{Math.min(currentPage * CARDS_PER_PAGE, totalCount)} of {totalCount} cards
           </div>
-        ) : filteredCards.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
-            <p>{isAdmin
-              ? 'No cards yet. Click "+ Add Card" to add cards.'
-              : 'No cards in this category.'}</p>
+        )}
+
+        <div className="card-grid">
+          {loading ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
+              <p>Loading cards...</p>
+            </div>
+          ) : cards.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: theme.textMuted }}>
+              <p>{isAdmin
+                ? 'No cards yet. Click "+ Add Card" to add cards.'
+                : 'No cards in this category.'}</p>
+            </div>
+          ) : (
+            cards.map((card, index) => (
+              <CardContainer
+                key={card.id}
+                card={card}
+                index={index}
+                isAdmin={isAdmin}
+                isSelectMode={isSelectMode}
+                isSelected={selectedCards.includes(card.id)}
+                onSelect={handleSelectCard}
+                onView={setViewingCard}
+                onEdit={(c) => { setEditingCard(c); setShowModal(true); }}
+                onDelete={handleDeleteCard}
+                onToggleSold={handleToggleSold}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '3rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: '10px 16px',
+                background: currentPage === 1 ? theme.bgTertiary : theme.bgSecondary,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '6px',
+                color: currentPage === 1 ? theme.textMuted : theme.textPrimary,
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                fontSize: '0.85rem',
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              ← Prev
+            </button>
+
+            {/* Page numbers */}
+            {(() => {
+              const pages = [];
+              const showEllipsisStart = currentPage > 3;
+              const showEllipsisEnd = currentPage < totalPages - 2;
+
+              // Always show first page
+              pages.push(1);
+
+              // Show ellipsis or pages near start
+              if (showEllipsisStart) {
+                pages.push('...');
+              }
+
+              // Pages around current
+              for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                if (!pages.includes(i)) pages.push(i);
+              }
+
+              // Show ellipsis or pages near end
+              if (showEllipsisEnd && !pages.includes('...2')) {
+                pages.push('...2');
+              }
+
+              // Always show last page
+              if (totalPages > 1 && !pages.includes(totalPages)) {
+                pages.push(totalPages);
+              }
+
+              return pages.map((page, idx) => {
+                if (page === '...' || page === '...2') {
+                  return (
+                    <span key={`ellipsis-${idx}`} style={{ color: theme.textMuted, padding: '0 4px' }}>
+                      ...
+                    </span>
+                  );
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    style={{
+                      padding: '10px 14px',
+                      background: currentPage === page ? theme.accent : theme.bgSecondary,
+                      border: `1px solid ${currentPage === page ? theme.accent : theme.border}`,
+                      borderRadius: '6px',
+                      color: currentPage === page ? theme.bgPrimary : theme.textPrimary,
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: currentPage === page ? 600 : 400,
+                      fontFamily: "'DM Sans', sans-serif",
+                      minWidth: '42px',
+                    }}
+                  >
+                    {page}
+                  </button>
+                );
+              });
+            })()}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '10px 16px',
+                background: currentPage === totalPages ? theme.bgTertiary : theme.bgSecondary,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '6px',
+                color: currentPage === totalPages ? theme.textMuted : theme.textPrimary,
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                fontSize: '0.85rem',
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              Next →
+            </button>
           </div>
-        ) : (
-          filteredCards.map((card, index) => (
-            <CardContainer
-              key={card.id}
-              card={card}
-              index={index}
-              isAdmin={isAdmin}
-              isSelectMode={isSelectMode}
-              isSelected={selectedCards.includes(card.id)}
-              onSelect={handleSelectCard}
-              onView={setViewingCard}
-              onEdit={(c) => { setEditingCard(c); setShowModal(true); }}
-              onDelete={handleDeleteCard}
-              onToggleSold={handleToggleSold}
-            />
-          ))
         )}
       </main>
 
