@@ -789,7 +789,7 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 
-const CARDS_PER_PAGE = 24;
+const CARDS_PER_PAGE = 25;
 
 const App = () => {
   const [activeFilter, setActiveFilter] = useState('All');
